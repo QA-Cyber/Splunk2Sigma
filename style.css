@@ -1,0 +1,128 @@
+/* General styling */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    padding: 20px;
+    max-width: 1200px;
+    margin: auto;
+}
+
+.input-section, .output-section {
+    width: 50%;
+    padding: 20px;
+}
+
+.input-section h2, .output-section h3 {
+    margin-bottom: 15px;
+}
+
+textarea {
+    width: 100%;
+    height: 300px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    resize: none;
+    font-size: 16px;
+}
+
+.options {
+    margin-top: 15px;
+}
+
+label {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+select {
+    padding: 5px;
+    margin-right: 20px;
+}
+
+.buttons {
+    margin-top: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+/* Output Section Styling */
+.output-section {
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.tabs {
+    margin-bottom: 10px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    margin-right: 5px;
+    border-radius: 5px 5px 0 0;
+}
+
+.tab-button.active {
+    background-color: #0056b3;
+}
+
+.output-text {
+    display: block;
+    width: 100%;
+    height: 250px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 16px;
+}
+
+.hidden {
+    display: none;
+}
+
+.cli-output {
+    margin-top: 20px;
+}
+
+#cli-command {
+    background-color: #eee;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+}
+
+#copy-cli-btn {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #28a745;
+}
+
+#copy-cli-btn:hover {
+    background-color: #218838;
+}

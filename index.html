@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splunk to Sigma Converter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <h2>Splunk Search</h2>
+            <textarea id="splunk-input" placeholder="Paste your Splunk savedsearch.conf rule here..."></textarea>
+            <div class="options">
+                <label for="backend">Backend:</label>
+                <select id="backend">
+                    <option value="splunk">Splunk</option>
+                </select>
+
+                <label for="format">Format:</label>
+                <select id="format">
+                    <option value="default">Default</option>
+                    <!-- Add more formats if needed -->
+                </select>
+            </div>
+            <div class="buttons">
+                <button id="clear-btn">Clear</button>
+                <input type="file" id="upload-btn" accept=".conf">
+                <button id="convert-btn">Convert</button>
+            </div>
+        </div>
+        <div class="output-section">
+            <div class="tabs">
+                <button class="tab-button active" onclick="openTab('sigma-output')">Sigma Rule</button>
+                <button class="tab-button" onclick="openTab('pipeline-output')">Pipeline YAML</button>
+            </div>
+            <textarea id="sigma-output" class="output-text"></textarea>
+            <textarea id="pipeline-output" class="output-text hidden"></textarea>
+            <div class="cli-output">
+                <h3>CLI Command</h3>
+                <p id="cli-command">sigma-cli ...</p>
+                <button id="copy-cli-btn">Copy Command</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
