@@ -7,7 +7,7 @@ The **Splunk2Sigma Converter** is a web-based tool that allows users to convert 
 
 The conversion process is enhanced with OpenAI's capabilities, ensuring that complex Splunk queries are accurately transformed into Sigma rules. After generating the Sigma rule with AI, the tool runs it through a rule validator checker called [`sigma-cli`](https://github.com/SigmaHQ/sigma-cli) to ensure that the rule adheres to the correct format and SIGMA standards.
 The project is divided into two main components:
-1. **Frontend**: A web interface hosted on GitHub Pages.
+1. **Frontend**: A web interface hosted on GitHub Pages [Sigma2Splunk](https://splunk2sigma.github.io/).
 2. **Backend**: A Flask-based API hosted on Heroku, which handles the conversion logic.
 
 ## Features
@@ -43,8 +43,8 @@ The project is divided into two main components:
 1. **Clone the repository:**
 
     ```bash
-    git clone https://github.com/Splunk2Sigma/Splunk2SigmaWeb.git
-    cd Splunk2SigmaWeb/backend
+    git clone https://github.com/QA-Cyber/Splunk2Sigma.git
+    cd Splunk2Sigma
     ```
 
 2. **Set up the Heroku app:**
@@ -196,4 +196,4 @@ For more details, please refer to the [LICENSE](LICENSE) file in the repository.
 
 For any questions, suggestions, or issues, please feel free to open an issue in this repository.
 
-You can also follow and interact with the project on GitHub: [Splunk2Sigma](https://github.com/Splunk2Sigma).
+You can also follow and interact with the project on GitHub Pages: [Splunk2Sigma](https://splunk2sigma.github.io/).
