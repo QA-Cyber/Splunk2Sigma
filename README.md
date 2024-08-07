@@ -87,7 +87,7 @@ The project is divided into two main components:
 
     ```bash
     git clone https://github.com/Splunk2Sigma/Splunk2SigmaWeb.git
-    cd Splunk2SigmaWeb
+    cd Splunk2Sigma
     ```
 
 2. **Modify the `script.js`:**
