@@ -57,9 +57,9 @@ textarea.form-control::-webkit-scrollbar-track {
 }
 
 textarea.form-control::-webkit-scrollbar-thumb {
-    background-color: #888;  /* Color of the scrollbar thumb */
-    border-radius: 10px;  /* Round the thumb corners */
-    border: 2px solid #f1f1f1;  /* Adds a border around the thumb */
+    background-color: #888;  
+    border-radius: 10px;  
+    border: 2px solid #f1f1f1;  
 }
 
 textarea.form-control::-webkit-scrollbar-thumb:hover {
