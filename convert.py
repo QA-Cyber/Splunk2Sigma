@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Import the CORS module
+from flask_cors import CORS
 import subprocess, os
 from config import OPENAI_API_KEY
 from openai import OpenAI
-from datetime import datetime  # Import the datetime module
+from datetime import datetime
 
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://splunk2sigma.github.io"])
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route('/convert', methods=['POST'])
