@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 app = Flask(__name__)
-CORS(app, origins=["https://splunk2sigma.github.io"])
+CORS(app, resources={r"/convert": {"origins": "https://splunk2sigma.github.io"}})
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route('/convert', methods=['POST'])
