@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/convert": {"origins": "https://splunk2sigma.github.io"}})
+CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route('/convert', methods=['POST'])
@@ -89,4 +89,5 @@ def validate_sigma_rule(sigma_rule: str) -> str:
         return str(e)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
