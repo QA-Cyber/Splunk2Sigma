@@ -7,7 +7,7 @@ from datetime import datetime  # Import the datetime module
 
 
 app = Flask(__name__)
-CORS(app, origins=["https://splunk2sigma.github.io"])
+CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route('/convert', methods=['POST'])
