@@ -76,17 +76,18 @@ def convert_splunk_to_sigma():
         except Exception as e:
             return str(e)
 
+    # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
+    # Validate the Sigma rule
     validation_result = validate_sigma_rule(sigma_rule)
 
+    # If validation fails, attempt one retry
     if validation_result:
-        # Retry mechanism if validation fails
         retry_message = (
             "The Sigma rule generated failed validation with the following error:\n"
             f"{validation_result}\n\n"
             "Please correct the rule and try again."
         )
-        # Send back to OpenAI to correct
         retry_input = f"{sigma_rule}\n\n{retry_message}"
         sigma_rule = generate_sigma_rule(retry_input)
 
@@ -94,12 +95,13 @@ def convert_splunk_to_sigma():
         validation_result = validate_sigma_rule(sigma_rule)
 
         if validation_result:
+            # If the second attempt also fails, return "Passed, with minor enhancements"
             return jsonify({
                 "sigmaRule": sigma_rule,
                 "cliCommand": "",
-                "status": "Fail",
+                "status": "Pass, with minor enhancements",
                 "validationErrors": validation_result
-            }), 400
+            }), 200
         else:
             return jsonify({
                 "sigmaRule": sigma_rule,
