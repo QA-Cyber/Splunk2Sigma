@@ -180,15 +180,6 @@ def convert_splunk_to_sigma():
             "validationErrors": pre_validation_result
         }), 400
 
-    # Optionally, perform full validation here using sigma-cli if desired
-    validation_result = validate_sigma_rule(sigma_rule)
-    if validation_result:
-        return jsonify({
-            "sigmaRule": sigma_rule,
-            "status": "Fail",
-            "validationErrors": validation_result
-        }), 400
-
     return jsonify({
         "sigmaRule": sigma_rule,
         "status": "Pass"
