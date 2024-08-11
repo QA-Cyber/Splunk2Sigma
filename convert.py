@@ -25,14 +25,12 @@ def auto_correct_indentation(sigma_rule: str) -> str:
         actual_indentation = (len(line) - len(stripped_line)) // 2
 
         if stripped_line.startswith('- '):
-            # Handle list items
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-        elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
-            # Increase indentation level for new blocks
+        elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-            indentation_stack.append(expected_indentation + 1)
+            expected_indentation += 1
+            indentation_stack.append(expected_indentation)
         else:
-            # Adjust indentation level for fields within a block
             if actual_indentation < expected_indentation:
                 while indentation_stack and actual_indentation < expected_indentation:
                     indentation_stack.pop()
