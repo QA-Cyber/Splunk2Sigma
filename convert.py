@@ -192,15 +192,15 @@ def convert_splunk_to_sigma():
     # Auto-correct indentation
     sigma_rule = auto_correct_indentation(sigma_rule)
     # Perform pre-validation on the generated Sigma rule
-    #pre_validation_result = pre_validate_yaml(sigma_rule)
-    # if pre_validation_result:
-    #     # If pre-validation fails, return the error
-    #     return jsonify({
-    #         "sigmaRule": sigma_rule,
-    #         "status": "Fail",
-    #         "validationErrors": pre_validation_result
-    #     }), 400
-    # Proceed with sigma-cli validation
+    pre_validation_result = pre_validate_yaml(sigma_rule)
+    if pre_validation_result:
+        # If pre-validation fails, return the error
+        return jsonify({
+            "sigmaRule": sigma_rule,
+            "status": "Fail",
+            "validationErrors": pre_validation_result
+        }), 400
+    #Proceed with sigma-cli validation
     validation_result = validate_sigma_rule(sigma_rule)
 
     if validation_result:
