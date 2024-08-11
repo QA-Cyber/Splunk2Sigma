@@ -96,6 +96,34 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         logging.error(error_message)
         return error_message
 
+def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a threat detection engineer. A Sigma rule was generated but it has validation errors. "
+                        "Correct the following Sigma rule, making sure to fix the errors described:\n\n"
+                        f"Errors:\n{errors}\n\nSigma Rule:\n{sigma_rule}\n\n"
+                        "Return only the corrected Sigma rule in YAML format."
+                    )
+                }
+            ],
+            temperature=0.2,
+            max_tokens=2500
+        )
+
+        corrected_sigma_rule = response.choices[0].message.content.strip()
+        corrected_sigma_rule = corrected_sigma_rule.replace('```yaml', '').replace('```', '').strip()
+
+        logging.info(f"Corrected Sigma rule from AI:\n{corrected_sigma_rule}")
+        return corrected_sigma_rule
+
+    except Exception as e:
+        logging.error(f"Failed to correct Sigma rule via AI: {str(e)}")
+        return sigma_rule
 
 def generate_sigma_rule(splunk_input):
     try:
@@ -153,6 +181,7 @@ def validate_sigma_rule(sigma_rule: str) -> str:
         if process.returncode != 0:
             logging.warning(f"Validation failed with error: {stderr.decode('utf-8')}")
             return stderr.decode('utf-8') if stderr else stdout.decode('utf-8')
+        logging.info(f"Validation passed for Sigma rule:\n{sigma_rule}")
         return ""
 
     except Exception as e:
@@ -174,17 +203,20 @@ def convert_splunk_to_sigma():
     # Perform pre-validation on the generated Sigma rule
     pre_validation_result = pre_validate_yaml(sigma_rule)
     if pre_validation_result:
-        return jsonify({
-            "sigmaRule": sigma_rule,
-            "status": "Fail",
-            "validationErrors": pre_validation_result
-        }), 400
+        # Send back to AI for correction if pre-validation fails
+        sigma_rule = send_back_to_ai_for_correction(sigma_rule, pre_validation_result)
+        pre_validation_result = pre_validate_yaml(sigma_rule)
+        if pre_validation_result:
+            return jsonify({
+                "sigmaRule": sigma_rule,
+                "status": "Fail",
+                "validationErrors": pre_validation_result
+            }), 400
 
     return jsonify({
         "sigmaRule": sigma_rule,
         "status": "Pass"
     })
-
 
 @app.route('/validate', methods=['POST', 'OPTIONS'])
 def validate_sigma():
@@ -208,7 +240,7 @@ def validate_sigma():
         return jsonify({
             "status": "Pass"
         })
-
+    
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
