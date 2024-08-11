@@ -7,8 +7,9 @@ from datetime import datetime
 from yaml import safe_load, YAMLError
 import re
 import uuid
+import logging
 
-
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -153,6 +154,7 @@ def generate_sigma_rule(splunk_input):
         return sigma_rule
 
     except Exception as e:
+        logging.error(f"Failed to generate Sigma rule: {str(e)}")
         return str(e)
 
 def validate_sigma_rule(sigma_rule: str) -> str:
@@ -164,10 +166,12 @@ def validate_sigma_rule(sigma_rule: str) -> str:
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
+            logging.warning(f"Validation failed with error: {stderr.decode('utf-8')}")
             return stderr.decode('utf-8') if stderr else stdout.decode('utf-8')
         return ""
 
     except Exception as e:
+        logging.error(f"Validation process encountered an error: {str(e)}")
         return str(e)
 
 @app.route('/convert', methods=['POST'])
