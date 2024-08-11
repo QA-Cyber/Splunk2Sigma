@@ -49,17 +49,15 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         });
 
         const convertResult = await convertResponse.json();
-        // Display the generated Sigma rule
-        queryCodeArea.value = convertResult.sigmaRule;
-        autoResize(queryCodeArea);
+        queryCodeArea.value = convertResult.sigmaRule; 
+        validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
+        validationStatus.style.color = "green";
+        validationStatus.classList.remove('fail');
+        validationStatus.classList.add('info');
+        validationStatus.style.display = 'block';
+        
 
         if (convertResponse.ok) {
-            validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
-            validationStatus.style.color = "green";
-            validationStatus.classList.remove('fail');
-            validationStatus.classList.add('info');
-            validationStatus.style.display = 'block';
-
             // Now proceed to validate the Sigma rule
             const validateResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/validate', {
                 method: 'POST',
@@ -89,7 +87,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             }
         } else {
             // Handle errors during conversion
-            queryCodeArea.value = ""; 
             validationStatus.textContent = `Conversion Failed: ${convertResult.validationErrors}`;
             validationStatus.style.color = "red";
             validationStatus.classList.remove('info', 'pass');
