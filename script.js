@@ -18,7 +18,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     const convertButton = document.getElementById('convert-btn');
     const validationStatus = document.getElementById('validation-status');
     const queryCodeArea = document.getElementById('query-code');
-    const outputSection = document.querySelector('.section-container');
 
     convertButton.disabled = true; 
     convertButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...'; 
@@ -38,6 +37,10 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     const format = document.getElementById('select-format').value;
 
     try {
+        // Inform user that generation is in progress
+        queryCodeArea.value = "Generating Sigma rule. Please wait...";
+        autoResize(queryCodeArea);
+
         // Request to generate the Sigma rule
         const response = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
             method: 'POST',
@@ -45,16 +48,13 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             body: JSON.stringify({ splunkInput, backend, format })
         });
 
-        if (!response.ok) {
-            throw new Error(`Error: ${response.statusText}`);
-        }
-
         const result = await response.json();
 
         // Display the generated Sigma rule
         queryCodeArea.value = result.sigmaRule;
         autoResize(queryCodeArea);
-        validationStatus.textContent = result.message;
+        validationStatus.textContent = "Sigma rule generated. Validating now...";
+        validationStatus.style.color = "green";
         validationStatus.classList.remove('fail');
         validationStatus.classList.add('info');
         validationStatus.style.display = 'block';
@@ -66,10 +66,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             body: JSON.stringify({ sigmaRule: result.sigmaRule })
         });
 
-        if (!validateResponse.ok) {
-            throw new Error(`Error: ${validateResponse.statusText}`);
-        }
-
         const validateResult = await validateResponse.json();
 
         if (validateResponse.ok) {
@@ -77,16 +73,15 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             validationStatus.classList.remove('fail');
             validationStatus.classList.add('pass');
         } else {
-            validationStatus.textContent = "SigmaC Syntax Validation: Fail. Fixing it...";
-            validationStatus.classList.remove('pass');
-            validationStatus.classList.add('fail');
-
-            // If the first validation failed and was fixed
             if (validateResult.status === "Passed with Minor Enhancements") {
                 queryCodeArea.value = validateResult.sigmaRule;
                 validationStatus.textContent = `SigmaC Syntax Validation: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
                 validationStatus.classList.remove('fail');
                 validationStatus.classList.add('pass');
+            } else {
+                validationStatus.textContent = "SigmaC Syntax Validation: Fail";
+                validationStatus.classList.remove('pass');
+                validationStatus.classList.add('fail');
             }
         }
     } catch (error) {

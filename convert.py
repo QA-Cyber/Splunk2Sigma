@@ -9,7 +9,6 @@ app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Define the helper functions first
 def generate_sigma_rule(splunk_input):
     try:
         response = client.chat.completions.create(
@@ -77,30 +76,22 @@ def convert_splunk_to_sigma():
     if not splunk_input:
         return jsonify({"message": "Splunk input is required"}), 400
 
-    # Generate the Sigma rule and send it to the user immediately
+    # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
-    response_data = {
-        "sigmaRule": sigma_rule,
-        "message": "Sigma rule generated. Validating now..."
-    }
-    return jsonify(response_data)
-
-@app.route('/validate', methods=['POST'])
-def validate_sigma():
-    data = request.json
-    sigma_rule = data['sigmaRule']
-    
     validation_result = validate_sigma_rule(sigma_rule)
 
     if validation_result:
+        # Retry mechanism if validation fails
         retry_message = (
             "The Sigma rule generated failed validation with the following error:\n"
             f"{validation_result}\n\n"
             "Please correct the rule and try again."
         )
+        # Send back to OpenAI to correct
         retry_input = f"{sigma_rule}\n\n{retry_message}"
         sigma_rule = generate_sigma_rule(retry_input)
 
+        # Validate again after correction
         validation_result = validate_sigma_rule(sigma_rule)
 
         if validation_result:
