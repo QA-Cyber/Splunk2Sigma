@@ -42,7 +42,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     const format = document.getElementById('select-format').value;
 
     try {
-        const response = await fetch('https://your-heroku-app.herokuapp.com/convert', {  
+        const response = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ splunkInput, backend, format })
