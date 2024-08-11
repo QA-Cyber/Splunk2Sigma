@@ -42,49 +42,58 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         autoResize(queryCodeArea);
 
         // Request to generate the Sigma rule
-        const response = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
+        const convertResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ splunkInput, backend, format })
         });
 
-        const result = await response.json();
-
+        const convertResult = await convertResponse.json();
         // Display the generated Sigma rule
-        queryCodeArea.value = result.sigmaRule;
+        queryCodeArea.value = convertResult.sigmaRule;
         autoResize(queryCodeArea);
-        validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
-        validationStatus.style.color = "green";
-        validationStatus.classList.remove('fail');
-        validationStatus.classList.add('info');
-        validationStatus.style.display = 'block';
 
-        // Now proceed to validate the Sigma rule
-        const validateResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sigmaRule: result.sigmaRule })
-        });
-
-        const validateResult = await validateResponse.json();
-
-        if (validateResponse.ok) {
-            validationStatus.textContent = "SigmaQ Validator: Pass";
+        if (convertResponse.ok) {
+            validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
+            validationStatus.style.color = "green";
             validationStatus.classList.remove('fail');
-            validationStatus.classList.add('pass');
-        } else {
-            if (validateResult.status === "Passed with Minor Enhancements") {
-                queryCodeArea.value = validateResult.sigmaRule;
-                validationStatus.textContent = `SigmaQ Validator: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
+            validationStatus.classList.add('info');
+            validationStatus.style.display = 'block';
+
+            // Now proceed to validate the Sigma rule
+            const validateResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sigmaRule: convertResult.sigmaRule })
+            });
+
+            const validateResult = await validateResponse.json();
+
+            if (validateResponse.ok) {
+                validationStatus.textContent = "SigmaQ Validator: Pass";
                 validationStatus.classList.remove('fail');
                 validationStatus.classList.add('pass');
             } else {
-                const reason = validateResult.validationErrors.split("\n")[0];  // Extract the first error line as the reason
-                validationStatus.textContent = `SigmaQ Validator: Fail - Reason: ${validateResult.reason}`;
-                validationStatus.style.color = "black";
-                validationStatus.classList.remove('pass');
-                validationStatus.classList.add('fail');
+                if (validateResult.status === "Passed with Minor Enhancements") {
+                    queryCodeArea.value = validateResult.sigmaRule;
+                    validationStatus.textContent = `SigmaQ Validator: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
+                    validationStatus.classList.remove('fail');
+                    validationStatus.classList.add('pass');
+                } else {
+                    const reason = validateResult.validationErrors.split("\n")[0];  // Extract the first error line as the reason
+                    validationStatus.textContent = `SigmaQ Validator: Fail - Reason: ${reason}`;
+                    validationStatus.style.color = "black";
+                    validationStatus.classList.remove('pass');
+                    validationStatus.classList.add('fail');
+                }
             }
+        } else {
+            // Handle errors during conversion
+            queryCodeArea.value = ""; 
+            validationStatus.textContent = `Conversion Failed: ${convertResult.validationErrors}`;
+            validationStatus.style.color = "red";
+            validationStatus.classList.remove('info', 'pass');
+            validationStatus.classList.add('fail');
         }
     } catch (error) {
         alert('An error occurred while converting the rule.');

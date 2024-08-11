@@ -33,20 +33,18 @@ def auto_correct_indentation(sigma_rule: str) -> str:
         actual_indentation = (len(line) - len(stripped_line)) // 2
 
         if stripped_line.startswith('- '):
-            # Handle list items
             corrected_lines.append('  ' * expected_indentation + stripped_line)
         elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
-            # Increase indentation level for new blocks
             corrected_lines.append('  ' * expected_indentation + stripped_line)
             indentation_stack.append(expected_indentation + 1)
         else:
-            # Adjust indentation level for fields within a block
             if actual_indentation < expected_indentation:
                 while indentation_stack and actual_indentation < expected_indentation:
                     indentation_stack.pop()
                     expected_indentation = indentation_stack[-1]
             corrected_lines.append('  ' * expected_indentation + stripped_line)
 
+    logging.info(f"Auto-corrected Sigma rule indentation:\n{''.join(corrected_lines)}")
     return "\n".join(corrected_lines)
 
 
@@ -90,10 +88,13 @@ def pre_validate_yaml(sigma_rule: str) -> str:
             if "all of them" in line:
                 issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
 
+        logging.info(f"Pre-validation issues: {issues}")
         return "\n".join(issues) if issues else ""
 
     except YAMLError as e:
-        return f"YAML parsing error: {str(e)}"
+        error_message = f"YAML parsing error: {str(e)}"
+        logging.error(error_message)
+        return error_message
 
 
 def generate_sigma_rule(splunk_input):
@@ -162,27 +163,22 @@ def validate_sigma_rule(sigma_rule: str) -> str:
 def convert_splunk_to_sigma():
     data = request.json
     splunk_input = data['splunkInput']
-    backend = data.get('backend', 'splunk')
-    format = data.get('format', 'default')
 
     if not splunk_input:
         return jsonify({"message": "Splunk input is required"}), 400
 
     # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
-
-    # Validate the original Sigma rule before applying corrections
-    original_validation_result = validate_original_yaml(sigma_rule)
-    if original_validation_result:
-        # Apply auto-correction and pre-validation only if the original rule is invalid
-        sigma_rule = auto_correct_indentation(sigma_rule)
-        pre_validation_result = pre_validate_yaml(sigma_rule)
-        if pre_validation_result:
-            return jsonify({
-                "sigmaRule": sigma_rule,
-                "status": "Fail",
-                "validationErrors": pre_validation_result
-            }), 400
+    # Auto-correct indentation
+    sigma_rule = auto_correct_indentation(sigma_rule)
+    # Perform pre-validation on the generated Sigma rule
+    pre_validation_result = pre_validate_yaml(sigma_rule)
+    if pre_validation_result:
+        return jsonify({
+            "sigmaRule": sigma_rule,
+            "status": "Fail",
+            "validationErrors": pre_validation_result
+        }), 400
 
     # Optionally, perform full validation here using sigma-cli if desired
     validation_result = validate_sigma_rule(sigma_rule)
@@ -197,6 +193,7 @@ def convert_splunk_to_sigma():
         "sigmaRule": sigma_rule,
         "status": "Pass"
     })
+
 
 @app.route('/validate', methods=['POST', 'OPTIONS'])
 def validate_sigma():
@@ -219,7 +216,7 @@ def validate_sigma():
     else:
         return jsonify({
             "status": "Pass"
-        })   
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
