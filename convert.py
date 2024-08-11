@@ -17,27 +17,32 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
-    indentation_stack = [0]
     expected_indentation = 0
+    indentation_stack = []
 
     for line in lines:
         stripped_line = line.lstrip()
+
+        # Determine the current level of indentation
         actual_indentation = (len(line) - len(stripped_line)) // 2
 
         if stripped_line.startswith('- '):
+            # Handle list items
             corrected_lines.append('  ' * expected_indentation + stripped_line)
         elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
+            # Increase the indentation for new blocks
             corrected_lines.append('  ' * expected_indentation + stripped_line)
             expected_indentation += 1
             indentation_stack.append(expected_indentation)
         else:
-            if actual_indentation < expected_indentation:
-                while indentation_stack and actual_indentation < expected_indentation:
-                    indentation_stack.pop()
-                    expected_indentation = indentation_stack[-1]
+            # Correctly handle indentation decrease when a block ends
+            while indentation_stack and actual_indentation < expected_indentation:
+                indentation_stack.pop()
+                expected_indentation -= 1
             corrected_lines.append('  ' * expected_indentation + stripped_line)
 
     return "\n".join(corrected_lines)
+
 
 
 def pre_validate_yaml(sigma_rule: str) -> str:
@@ -47,7 +52,7 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         lines = sigma_rule.split('\n')
         
         for i, line in enumerate(lines):
-            if line.strip().endswith(':') and i + 1 < len(lines) and not lines[i + 1].strip().startswith('-'):
+            if line.strip().endswith(':') and (i + 1 >= len(lines) or lines[i + 1].strip().startswith('-')):
                 issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
 
             if (len(line) - len(line.lstrip())) % 2 != 0:
@@ -55,13 +60,6 @@ def pre_validate_yaml(sigma_rule: str) -> str:
 
             if "logsource" in line and not any(field in line for field in ["product", "service", "category"]):
                 issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
-
-            if line.strip() == 'logsource:':
-                if i + 1 < len(lines) and not lines[i + 1].startswith('  '):
-                    issues.append(f"YAML indentation error: Fields under 'logsource' should be indented.")
-            if line.strip() == 'tags:':
-                if i + 1 < len(lines) and not lines[i + 1].startswith('  - '):
-                    issues.append(f"YAML indentation error: Tags under 'tags' should be indented and listed.")
 
             if "detection:" in line and "condition:" not in sigma_rule:
                 issues.append("YAML error: 'condition' field is missing in the detection section.")
@@ -87,17 +85,10 @@ def pre_validate_yaml(sigma_rule: str) -> str:
             if "all of them" in line:
                 issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
 
-            if "logsource:" in line:
-                if "sysmon" in sigma_rule and "EventID" in sigma_rule:
-                    issues.append(f"YAML logsource error: Consider using a generic log source instead of specific event identifiers for Sysmon.")
-
         return "\n".join(issues) if issues else ""
 
     except YAMLError as e:
-        error_message = str(e)
-        if "mapping values are not allowed here" in error_message:
-            return "YAML parsing error: Incorrect key-value mapping or unexpected character."
-        return f"YAML parsing error: {error_message}"
+        return f"YAML parsing error: {str(e)}"
 
 def generate_sigma_rule(splunk_input):
     try:
