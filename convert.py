@@ -5,6 +5,8 @@ from config import OPENAI_API_KEY
 from openai import OpenAI
 from datetime import datetime
 from yaml import safe_load, YAMLError
+import re
+import uuid
 
 
 app = Flask(__name__)
