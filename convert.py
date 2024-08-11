@@ -17,21 +17,18 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
-    indentation_stack = [0]  # Stack to keep track of current indentation levels
+    indentation_stack = [0]
 
     for line in lines:
         stripped_line = line.lstrip()
         current_indentation = len(line) - len(stripped_line)
 
         if stripped_line.startswith('- '):
-            # List item, keep the same indentation level
             corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
         elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
-            # New block, increase the indentation level
             corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
             indentation_stack.append(indentation_stack[-1] + 1)
         else:
-            # Handle fields that should be at the same level or decrease indentation
             if current_indentation < indentation_stack[-1]:
                 while indentation_stack and current_indentation < indentation_stack[-1]:
                     indentation_stack.pop()
@@ -43,28 +40,20 @@ def auto_correct_indentation(sigma_rule: str) -> str:
 
 def pre_validate_yaml(sigma_rule: str) -> str:
     try:
-        # Attempt to parse the YAML to identify any errors
         safe_load(sigma_rule)
-        
-        # Initialize common issues list
         issues = []
-        
-        # Check for common issues in Sigma rules
         lines = sigma_rule.split('\n')
         
         for i, line in enumerate(lines):
             if line.strip().endswith(':') and i + 1 < len(lines) and not lines[i + 1].strip().startswith('-'):
                 issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
 
-            # Check for improperly indented fields (indentation should be a multiple of 2 spaces)
             if (len(line) - len(line.lstrip())) % 2 != 0:
                 issues.append(f"YAML indentation error on line {i+1}: '{line.strip()}' should be indented with spaces.")
 
-            # Check for missing or incorrect logsource fields
             if "logsource" in line and not any(field in line for field in ["product", "service", "category"]):
                 issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
 
-            # Check for correct indentation under logsource and tags
             if line.strip() == 'logsource:':
                 if i + 1 < len(lines) and not lines[i + 1].startswith('  '):
                     issues.append(f"YAML indentation error: Fields under 'logsource' should be indented.")
@@ -72,42 +61,35 @@ def pre_validate_yaml(sigma_rule: str) -> str:
                 if i + 1 < len(lines) and not lines[i + 1].startswith('  - '):
                     issues.append(f"YAML indentation error: Tags under 'tags' should be indented and listed.")
 
-            # Ensure detection condition is included
             if "detection:" in line and "condition:" not in sigma_rule:
                 issues.append("YAML error: 'condition' field is missing in the detection section.")
 
-            # Ensure no duplicate keys in the same level of the YAML hierarchy
             if ":" in line and sigma_rule.count(line.strip()) > 1:
                 issues.append(f"YAML duplicate key error: The key '{line.strip().split(':')[0]}' appears more than once.")
 
-            # Ensure that UUIDs are valid
             if "id:" in line:
                 try:
                     uuid.UUID(line.split("id:")[1].strip())
                 except ValueError:
                     issues.append(f"YAML UUID error on line {i+1}: '{line.strip()}' is not a valid UUID.")
 
-            # Ensure that the status field is valid
             if "status:" in line:
                 if line.split("status:")[1].strip() not in ["stable", "test", "experimental", "deprecated", "unsupported"]:
                     issues.append(f"YAML status error on line {i+1}: '{line.strip()}' is not a valid status.")
 
-            # Ensure there are no escaped wildcards or control characters in string values
             if re.search(r'[\\*\\?]', line):
                 issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line.strip()}'. Ensure the escape is intentional.")
             if re.search(r'[\x00-\x1f]', line):
                 issues.append(f"YAML error on line {i+1}: Found a control character in '{line.strip()}'. Check for missing slashes.")
 
-            # Ensure 'all of them' is not used; suggest 'all of selection*' instead
             if "all of them" in line:
                 issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
 
-            # Check for common logsource to generic logsource mappings issues
             if "logsource:" in line:
                 if "sysmon" in sigma_rule and "EventID" in sigma_rule:
                     issues.append(f"YAML logsource error: Consider using a generic log source instead of specific event identifiers for Sysmon.")
 
-        return "\n".join(issues) if issues else ""  # Return issues if any
+        return "\n".join(issues) if issues else ""
 
     except YAMLError as e:
         error_message = str(e)
@@ -200,40 +182,9 @@ def convert_splunk_to_sigma():
             "status": "Fail",
             "validationErrors": pre_validation_result
         }), 400
-    #Proceed with sigma-cli validation
-    validation_result = validate_sigma_rule(sigma_rule)
-
-    if validation_result:
-        # Retry mechanism if validation fails
-        retry_message = (
-            "The Sigma rule generated failed validation with the following error:\n"
-            f"{validation_result}\n\n"
-            "Please correct the rule and try again."
-        )
-        # Send back to OpenAI to correct
-        retry_input = f"{sigma_rule}\n\n{retry_message}"
-        sigma_rule = generate_sigma_rule(retry_input)
-
-        # Validate again after correction
-        validation_result = validate_sigma_rule(sigma_rule)
-
-        if validation_result:
-            return jsonify({
-                "sigmaRule": sigma_rule,
-                "cliCommand": "",
-                "status": "Passed with Minor Enhancements",
-                "validationErrors": validation_result
-            }), 400
-        else:
-            return jsonify({
-                "sigmaRule": sigma_rule,
-                "cliCommand": f"sigma check '{sigma_rule}'",
-                "status": "Pass"
-            })
 
     return jsonify({
         "sigmaRule": sigma_rule,
-        "cliCommand": f"sigma check '{sigma_rule}'",
         "status": "Pass"
     })
 
@@ -259,6 +210,7 @@ def validate_sigma():
         return jsonify({
             "status": "Pass"
         })
+    
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
