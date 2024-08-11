@@ -54,44 +54,57 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         lines = sigma_rule.split('\n')
         
         for i, line in enumerate(lines):
-            if line.strip().endswith(':') and (i + 1 >= len(lines) or lines[i + 1].strip().startswith('-')):
-                issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
+            line_content = line.strip()
 
+            # Check for incomplete keys
+            if line_content.endswith(':') and (i + 1 >= len(lines) or lines[i + 1].strip().startswith('-') or not lines[i + 1].strip()):
+                issues.append(f"YAML formatting error on line {i+1}: '{line_content}' appears to be an incomplete key.")
+
+            # Check for improper indentation
             if (len(line) - len(line.lstrip())) % 2 != 0:
-                issues.append(f"YAML indentation error on line {i+1}: '{line.strip()}' should be indented with spaces.")
+                issues.append(f"YAML indentation error on line {i+1}: '{line_content}' should be indented with spaces.")
 
-            if "logsource" in line and not any(field in line for field in ["product", "service", "category"]):
-                issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
+            # Validate 'logsource' block
+            if line_content == 'logsource:':
+                if not any(field in lines[i + 1] for field in ["product", "service", "category"]):
+                    issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
 
-            if "detection:" in line and "condition:" not in sigma_rule:
-                issues.append("YAML error: 'condition' field is missing in the detection section.")
+            # Validate 'detection' block
+            if line_content == 'detection:':
+                if 'condition:' not in sigma_rule:
+                    issues.append("YAML error: 'condition' field is missing in the detection section.")
 
-            if ":" in line and sigma_rule.count(line.strip()) > 1:
-                issues.append(f"YAML duplicate key error: The key '{line.strip().split(':')[0]}' appears more than once.")
+            # Check for duplicate keys
+            if ":" in line_content and lines.count(line_content) > 1:
+                issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
 
-            if "id:" in line:
+            # Validate UUID format
+            if line_content.startswith("id:"):
                 try:
-                    uuid.UUID(line.split("id:")[1].strip())
+                    uuid.UUID(line_content.split("id:")[1].strip())
                 except ValueError:
-                    issues.append(f"YAML UUID error on line {i+1}: '{line.strip()}' is not a valid UUID.")
+                    issues.append(f"YAML UUID error on line {i+1}: '{line_content}' is not a valid UUID.")
 
-            if "status:" in line:
-                if line.split("status:")[1].strip() not in ["stable", "test", "experimental", "deprecated", "unsupported"]:
-                    issues.append(f"YAML status error on line {i+1}: '{line.strip()}' is not a valid status.")
+            # Validate status field
+            if line_content.startswith("status:"):
+                if line_content.split("status:")[1].strip() not in ["stable", "test", "experimental", "deprecated", "unsupported"]:
+                    issues.append(f"YAML status error on line {i+1}: '{line_content}' is not a valid status.")
 
-            if re.search(r'[\\*\\?]', line):
-                issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line.strip()}'. Ensure the escape is intentional.")
-            if re.search(r'[\x00-\x1f]', line):
-                issues.append(f"YAML error on line {i+1}: Found a control character in '{line.strip()}'. Check for missing slashes.")
+            # Check for escaped wildcards or control characters in string values
+            if re.search(r'[\\*\\?]', line_content):
+                issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line_content}'. Ensure the escape is intentional.")
+            if re.search(r'[\x00-\x1f]', line_content):
+                issues.append(f"YAML error on line {i+1}: Found a control character in '{line_content}'. Check for missing slashes.")
 
-            if "all of them" in line:
+            # Check for discouraged phrases
+            if "all of them" in line_content:
                 issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
 
         return "\n".join(issues) if issues else ""
 
     except YAMLError as e:
         return f"YAML parsing error: {str(e)}"
-    
+ 
 def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
     try:
         response = client.chat.completions.create(
