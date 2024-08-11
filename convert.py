@@ -138,11 +138,15 @@ def generate_sigma_rule(splunk_input):
                     "content": (
                         "You are a threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
                         "Users will provide you with a Splunk savedsearch.conf rule, and you will convert it to a Sigma .yml rule. \n\n"
-                        "**Guidelines:**\n1. Ensure the conversion follows best practices for threat detection and adheres to the Sigma rule format.\n"
+                        "**Guidelines:**\n"
+                        "1. Ensure the conversion follows best practices for threat detection and adheres to the Sigma rule format.\n"
                         "2. Always use 'Splunk2Sigma' as the author and set the date to today's date in the format 'yyyy-mm-dd'.\n"
                         "3. Avoid providing explanations. Only the Sigma rule output should be provided.\n"
                         "4. Ensure the output is in YAML format and adheres to the Sigma standard fields (e.g., title, id, description, tags, logsource, detection, falsepositives, level).\n"
-                        "5. Refer to the Sigma Rule Creation Guide for standard practices, including how to structure detection logic, use conditions, and select appropriate metadata fields."
+                        "5. Make sure all fields are properly indented, no line ends with a colon without a value, and UUIDs are valid.\n"
+                        "6. Double-check that the `logsource` section includes at least one of 'product', 'service', or 'category', and the `detection` section includes a `condition` field.\n"
+                        "7. After generating the rule, review it for common issues like improper indentation, invalid UUIDs, or missing fields. Correct any detected issues before finalizing the rule.\n"
+                        "8. Refer to the Sigma Rule Creation Guide for standard practices, including how to structure detection logic, use conditions, and select appropriate metadata fields."
                     )
                 },
                 {
