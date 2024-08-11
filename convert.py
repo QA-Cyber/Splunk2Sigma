@@ -47,9 +47,8 @@ def auto_correct_indentation(sigma_rule: str) -> str:
     return "\n".join(corrected_lines)
 
 
-def pre_validate_yaml(sigma_rule: str) -> str:
+def pre_validate_yaml(sigma_rule: str) -> (str, str):
     try:
-        # Attempt to parse the original YAML to catch any unhandled errors
         safe_load(sigma_rule)
         issues = []
         corrected_lines = []
@@ -59,63 +58,50 @@ def pre_validate_yaml(sigma_rule: str) -> str:
             line_content = line.strip()
             next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
 
-            # Handle incomplete keys (Keys ending with ':')
             if line_content.endswith(':') and (not next_line or next_line.startswith('-')):
                 issues.append(f"YAML formatting error on line {i+1}: '{line_content}' appears to be an incomplete key.")
-                # Auto-fix: Add a placeholder value to complete the key
                 corrected_lines.append(line + " <value>")
                 continue
 
-            # Handle escaped wildcards or control characters in string values
             if re.search(r'[\\*\\?]', line_content):
                 issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line_content}'. Ensure the escape is intentional.")
-                # Auto-fix: Remove unnecessary escape characters
                 line_content = re.sub(r'\\([*?])', r'\1', line_content)
 
-            # Handle improper indentation (Ensure proper 2-space indentation)
             actual_indentation = len(line) - len(line.lstrip())
             if actual_indentation % 2 != 0:
                 issues.append(f"YAML indentation error on line {i+1}: '{line_content}' should be indented with spaces.")
-                # Auto-fix: Correct the indentation
                 corrected_lines.append('  ' * (actual_indentation // 2) + line_content)
                 continue
 
-            # Handle duplicate keys within the same level
             if ":" in line_content and sigma_rule.count(line_content) > 1:
                 issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
-                # Auto-fix: Append a unique suffix to the duplicate key
                 unique_key = line_content.split(':')[0] + f"_duplicate_{i+1}"
                 corrected_lines.append(unique_key + ": " + line_content.split(':', 1)[1].strip())
                 continue
 
-            # Validate 'logsource' block (Ensure 'logsource' includes 'product', 'service', or 'category')
             if line_content == 'logsource:' and not any(field in next_line for field in ["product", "service", "category"]):
                 issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
-                # Auto-fix: Add a default 'product' value if missing
                 corrected_lines.append(line)
                 corrected_lines.append('  product: windows')
                 continue
 
-            # Validate 'detection' block (Ensure 'condition' is present)
             if line_content == 'detection:' and 'condition:' not in sigma_rule:
                 issues.append("YAML error: 'condition' field is missing in the detection section.")
-                # Auto-fix: Add a placeholder 'condition' field
                 corrected_lines.append(line)
                 corrected_lines.append('  condition: selection')
                 continue
 
             corrected_lines.append(line)
 
-        # Return the auto-corrected Sigma rule if any issues were fixed
+        corrected_sigma_rule = "\n".join(corrected_lines)
+        
         if issues:
-            corrected_sigma_rule = "\n".join(corrected_lines)
-            return f"Issues found:\n{'\n'.join(issues)}\n\nAuto-corrected Sigma Rule:\n{corrected_sigma_rule}"
-
-        return ""
+            return corrected_sigma_rule, f"Issues found:\n{'\n'.join(issues)}\n\nAuto-corrected Sigma Rule:\n{corrected_sigma_rule}"
+        
+        return corrected_sigma_rule, ""
 
     except YAMLError as e:
-        return f"YAML parsing error: {str(e)}"
-
+        return sigma_rule, f"YAML parsing error: {str(e)}"
 def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
     try:
         response = client.chat.completions.create(
@@ -222,18 +208,21 @@ def convert_splunk_to_sigma():
 
     sigma_rule = generate_sigma_rule(splunk_input)
     sigma_rule = auto_correct_indentation(sigma_rule)
-    pre_validation_result = pre_validate_yaml(sigma_rule)
+    sigma_rule, pre_validation_result = pre_validate_yaml(sigma_rule)
 
     if pre_validation_result:
+        # If there are still issues after pre-validation, send to AI for correction
         sigma_rule = send_back_to_ai_for_correction(sigma_rule, pre_validation_result)
-        pre_validation_result = pre_validate_yaml(sigma_rule)
+        sigma_rule, pre_validation_result = pre_validate_yaml(sigma_rule)
         if pre_validation_result:
+            # Only show this if issues persist even after AI correction
             return jsonify({
                 "sigmaRule": sigma_rule,
                 "status": "NA:",
                 "validationErrors": pre_validation_result
             }), 200
 
+    # If no issues, or if issues were successfully fixed, return the Sigma rule
     return jsonify({
         "sigmaRule": sigma_rule,
         "status": "Pass"
