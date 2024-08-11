@@ -4,10 +4,87 @@ import subprocess, os
 from config import OPENAI_API_KEY
 from openai import OpenAI
 from datetime import datetime
+from yaml import safe_load, YAMLError
+
 
 app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+def pre_validate_yaml(sigma_rule: str) -> str:
+    """
+    Perform pre-validation on the Sigma rule YAML to identify and fix common issues.
+    """
+    try:
+        # Attempt to parse the YAML to identify any errors
+        safe_load(sigma_rule)
+        
+        # Initialize common issues list
+        issues = []
+        
+        # Check for common issues in Sigma rules
+        lines = sigma_rule.split('\n')
+        
+        # Issue: Ensure no line ends with a colon (incomplete mapping)
+        for i, line in enumerate(lines):
+            if line.strip().endswith(':'):
+                issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
+
+            # Check for improperly indented fields (indentation should be a multiple of 2 spaces)
+            if len(line) - len(line.lstrip()) % 2 != 0:
+                issues.append(f"YAML indentation error on line {i+1}: '{line.strip()}' should be indented with spaces.")
+
+            # Check for missing or incorrect logsource fields
+            if "logsource" in line and not any(field in line for field in ["product", "service", "category"]):
+                issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
+
+            # Ensure detection condition is included
+            if "detection:" in line and "condition:" not in sigma_rule:
+                issues.append("YAML error: 'condition' field is missing in the detection section.")
+
+            # Ensure no duplicate keys in the same level of the YAML hierarchy
+            if ":" in line and sigma_rule.count(line.strip()) > 1:
+                issues.append(f"YAML duplicate key error: The key '{line.strip().split(':')[0]}' appears more than once.")
+
+            # Ensure that UUIDs are valid
+            if "id:" in line:
+                try:
+                    uuid.UUID(line.split("id:")[1].strip())
+                except ValueError:
+                    issues.append(f"YAML UUID error on line {i+1}: '{line.strip()}' is not a valid UUID.")
+
+            # Ensure that the status field is valid
+            if "status:" in line:
+                if line.split("status:")[1].strip() not in ["stable", "test", "experimental", "deprecated", "unsupported"]:
+                    issues.append(f"YAML status error on line {i+1}: '{line.strip()}' is not a valid status.")
+
+            # Ensure there are no escaped wildcards or control characters in string values
+            if re.search(r'[\\*\\?]', line):
+                issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line.strip()}'. Ensure the escape is intentional.")
+            if re.search(r'[\x00-\x1f]', line):
+                issues.append(f"YAML error on line {i+1}: Found a control character in '{line.strip()}'. Check for missing slashes.")
+
+            # Ensure 'all of them' is not used; suggest 'all of selection*' instead
+            if "all of them" in line:
+                issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
+
+            # Check for common logsource to generic logsource mappings issues
+            if "logsource:" in line:
+                if "sysmon" in sigma_rule and "EventID" in sigma_rule:
+                    issues.append(f"YAML logsource error: Consider using a generic log source instead of specific event identifiers for Sysmon.")
+
+        return "\n".join(issues) if issues else ""  # Return issues if any
+
+    except YAMLError as e:
+        # Handle specific common errors here
+        error_message = str(e)
+
+        # Example of common issue handling:
+        if "mapping values are not allowed here" in error_message:
+            return "YAML parsing error: Incorrect key-value mapping or unexpected character."
+
+        # General error return
+        return f"YAML parsing error: {error_message}"
 
 def generate_sigma_rule(splunk_input):
     try:
@@ -78,6 +155,16 @@ def convert_splunk_to_sigma():
 
     # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
+    # Perform pre-validation on the generated Sigma rule
+    pre_validation_result = pre_validate_yaml(sigma_rule)
+    if pre_validation_result:
+        # If pre-validation fails, return the error
+        return jsonify({
+            "sigmaRule": sigma_rule,
+            "status": "Fail",
+            "validationErrors": pre_validation_result
+        }), 400
+    # Proceed with sigma-cli validation
     validation_result = validate_sigma_rule(sigma_rule)
 
     if validation_result:
