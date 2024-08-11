@@ -14,7 +14,6 @@ new TomSelect("#select-format", {
     labelField: "label"
 });
 
-
 document.getElementById('convert-btn').addEventListener('click', async function () {
     const convertButton = document.getElementById('convert-btn');
     const validationStatus = document.getElementById('validation-status');
@@ -46,6 +45,10 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             body: JSON.stringify({ splunkInput, backend, format })
         });
 
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+
         const result = await response.json();
 
         // Display the generated Sigma rule
@@ -57,11 +60,15 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         validationStatus.style.display = 'block';
 
         // Now proceed to validate the Sigma rule
-        const validateResponse = await fetch('https://your-heroku-app.herokuapp.com/validate', {
+        const validateResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/validate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sigmaRule: result.sigmaRule })
         });
+
+        if (!validateResponse.ok) {
+            throw new Error(`Error: ${validateResponse.statusText}`);
+        }
 
         const validateResult = await validateResponse.json();
 
@@ -93,8 +100,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     }
 });
 
-
-
 function autoResize(textarea) {
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';
@@ -103,6 +108,3 @@ function autoResize(textarea) {
 function removePlaceholderStyle(textarea) {
     textarea.classList.remove('placeholder-style');
 }
-
-
-
