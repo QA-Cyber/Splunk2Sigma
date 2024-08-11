@@ -17,22 +17,36 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
-    indentation_stack = [0]
+    expected_indentation = 0
+    previous_indentation = None
 
     for line in lines:
         stripped_line = line.lstrip()
-        current_indentation = len(line) - len(stripped_line)
 
+        # Determine the actual indentation level of the current line
+        actual_indentation = (len(line) - len(stripped_line)) // 2
+
+        # Check if line is a list item
         if stripped_line.startswith('- '):
-            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
-        elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
-            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
-            indentation_stack.append(indentation_stack[-1] + 1)
+            # Indent list items based on the expected indentation level
+            corrected_lines.append('  ' * expected_indentation + stripped_line)
+        elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
+            # Increase expected indentation level for new blocks
+            corrected_lines.append('  ' * expected_indentation + stripped_line)
+            expected_indentation += 1
         else:
-            if current_indentation < indentation_stack[-1]:
-                while indentation_stack and current_indentation < indentation_stack[-1]:
-                    indentation_stack.pop()
-            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
+            # Align fields that belong to the current block
+            corrected_lines.append('  ' * expected_indentation + stripped_line)
+
+        # Adjust expected indentation for the next line
+        if actual_indentation > expected_indentation:
+            expected_indentation = actual_indentation
+
+        # Decrease indentation if a block ends and expected indentation needs to be adjusted
+        if previous_indentation is not None and actual_indentation < previous_indentation:
+            expected_indentation = actual_indentation
+
+        previous_indentation = actual_indentation
 
     return "\n".join(corrected_lines)
 
@@ -176,11 +190,19 @@ def convert_splunk_to_sigma():
     # Perform pre-validation on the generated Sigma rule
     pre_validation_result = pre_validate_yaml(sigma_rule)
     if pre_validation_result:
-        # If pre-validation fails, return the error
         return jsonify({
             "sigmaRule": sigma_rule,
             "status": "Fail",
             "validationErrors": pre_validation_result
+        }), 400
+
+    # Optionally, perform full validation here using sigma-cli if desired
+    validation_result = validate_sigma_rule(sigma_rule)
+    if validation_result:
+        return jsonify({
+            "sigmaRule": sigma_rule,
+            "status": "Fail",
+            "validationErrors": validation_result
         }), 400
 
     return jsonify({
