@@ -53,7 +53,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         // Display the generated Sigma rule
         queryCodeArea.value = result.sigmaRule;
         autoResize(queryCodeArea);
-        validationStatus.textContent = "Sigma rule generated. Validating now...";
+        validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
         validationStatus.style.color = "green";
         validationStatus.classList.remove('fail');
         validationStatus.classList.add('info');
@@ -69,24 +69,24 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         const validateResult = await validateResponse.json();
 
         if (validateResponse.ok) {
-            validationStatus.textContent = "SigmaC Syntax Validation: Pass";
+            validationStatus.textContent = "SigmaQ Validator: Pass";
             validationStatus.classList.remove('fail');
             validationStatus.classList.add('pass');
         } else {
             if (validateResult.status === "Passed with Minor Enhancements") {
                 queryCodeArea.value = validateResult.sigmaRule;
-                validationStatus.textContent = `SigmaC Syntax Validation: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
+                validationStatus.textContent = `SigmaQ Validator: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
                 validationStatus.classList.remove('fail');
                 validationStatus.classList.add('pass');
             } else {
-                validationStatus.textContent = "SigmaC Syntax Validation: Fail";
+                validationStatus.textContent = "SigmaQ Validator: Fail";
                 validationStatus.classList.remove('pass');
                 validationStatus.classList.add('fail');
             }
         }
     } catch (error) {
         alert('An error occurred while converting the rule.');
-        validationStatus.textContent = "SigmaC Syntax Validation: Fail";
+        validationStatus.textContent = "SigmaQ Validator: Fail";
         validationStatus.classList.remove('pass');
         validationStatus.classList.add('fail');
     } finally {
