@@ -79,7 +79,8 @@ document.getElementById('convert-btn').addEventListener('click', async function 
                 validationStatus.classList.remove('fail');
                 validationStatus.classList.add('pass');
             } else {
-                validationStatus.textContent = "SigmaQ Validator: Fail";
+                const reason = validateResult.validationErrors.split("\n")[0];  // Extract the first error line as the reason
+                validationStatus.textContent = `SigmaQ Validator: Fail - ${reason}`;
                 validationStatus.style.color = "black";
                 validationStatus.classList.remove('pass');
                 validationStatus.classList.add('fail');
