@@ -19,6 +19,7 @@ def auto_correct_indentation(sigma_rule: str) -> str:
     corrected_lines = []
     indentation_level = 0
     logsource_detected = False
+    tags_detected = False
 
     for line in lines:
         stripped_line = line.lstrip()
@@ -31,17 +32,26 @@ def auto_correct_indentation(sigma_rule: str) -> str:
                 # This is a new block, increase the indentation
                 corrected_lines.append('  ' * indentation_level + stripped_line)
                 indentation_level += 1
+                if stripped_line == 'logsource:':
+                    logsource_detected = True
+                if stripped_line == 'tags:':
+                    tags_detected = True
             elif stripped_line.startswith('logsource:'):
                 # Ensure proper indentation for the logsource section
                 indentation_level = 1
                 corrected_lines.append('  ' * indentation_level + stripped_line)
                 logsource_detected = True
-            elif stripped_line.startswith('service:') and logsource_detected:
-                # Correct indentation for the service under logsource
-                corrected_lines.append('  ' * (indentation_level + 1) + stripped_line)
-            elif stripped_line.startswith('product:') and logsource_detected:
-                # Correct indentation for the product under logsource
-                corrected_lines.append('  ' * (indentation_level + 1) + stripped_line)
+            elif stripped_line.startswith('tags:'):
+                # Ensure proper indentation for the tags section
+                indentation_level = 1
+                corrected_lines.append('  ' * indentation_level + stripped_line)
+                tags_detected = True
+            elif logsource_detected and (stripped_line.startswith('product:') or stripped_line.startswith('service:')):
+                # Correct indentation for product and service under logsource
+                corrected_lines.append('  ' * (indentation_level) + stripped_line)
+            elif tags_detected and stripped_line.startswith('- '):
+                # Correct indentation for tags list
+                corrected_lines.append('  ' * (indentation_level) + stripped_line)
             else:
                 # Normal line or decrease indentation if we reach a new block
                 if indentation_level > 0 and (':' in stripped_line or not stripped_line.startswith('- ')):
@@ -53,10 +63,8 @@ def auto_correct_indentation(sigma_rule: str) -> str:
     return "\n".join(corrected_lines)
 
 
+
 def pre_validate_yaml(sigma_rule: str) -> str:
-    """
-    Perform pre-validation on the Sigma rule YAML to identify and fix common issues.
-    """
     try:
         # Attempt to parse the YAML to identify any errors
         safe_load(sigma_rule)
@@ -67,7 +75,6 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         # Check for common issues in Sigma rules
         lines = sigma_rule.split('\n')
         
-        # Issue: Ensure no line ends with a colon (incomplete mapping)
         for i, line in enumerate(lines):
             if line.strip().endswith(':') and i + 1 < len(lines) and not lines[i + 1].strip().startswith('-'):
                 issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
@@ -79,6 +86,14 @@ def pre_validate_yaml(sigma_rule: str) -> str:
             # Check for missing or incorrect logsource fields
             if "logsource" in line and not any(field in line for field in ["product", "service", "category"]):
                 issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
+
+            # Check for correct indentation under logsource and tags
+            if line.strip() == 'logsource:':
+                if i + 1 < len(lines) and not lines[i + 1].startswith('  '):
+                    issues.append(f"YAML indentation error: Fields under 'logsource' should be indented.")
+            if line.strip() == 'tags:':
+                if i + 1 < len(lines) and not lines[i + 1].startswith('  - '):
+                    issues.append(f"YAML indentation error: Tags under 'tags' should be indented and listed.")
 
             # Ensure detection condition is included
             if "detection:" in line and "condition:" not in sigma_rule:
@@ -118,35 +133,32 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         return "\n".join(issues) if issues else ""  # Return issues if any
 
     except YAMLError as e:
-        # Handle specific common errors here
         error_message = str(e)
-
-        # Example of common issue handling:
         if "mapping values are not allowed here" in error_message:
             return "YAML parsing error: Incorrect key-value mapping or unexpected character."
-
-        # General error return
         return f"YAML parsing error: {error_message}"
 
 def generate_sigma_rule(splunk_input):
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are a threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
-                        "Users will provide you with a Splunk savedsearch.conf rule, and you will convert it to a Sigma .yml rule. \n\n"
-                        "**Guidelines:**\n"
-                        "1. Ensure the conversion follows best practices for threat detection and adheres to the Sigma rule format.\n"
-                        "2. Always use 'Splunk2Sigma' as the author and set the date to today's date in the format 'yyyy-mm-dd'.\n"
-                        "3. Avoid providing explanations. Only the Sigma rule output should be provided.\n"
-                        "4. Ensure the output is in YAML format and adheres to the Sigma standard fields (e.g., title, id, description, tags, logsource, detection, falsepositives, level).\n"
-                        "5. Make sure all fields are properly indented, no line ends with a colon without a value, and UUIDs are valid.\n"
-                        "6. Double-check that the `logsource` section includes at least one of 'product', 'service', or 'category', and the `detection` section includes a `condition` field.\n"
-                        "7. After generating the rule, review it for common issues like improper indentation, invalid UUIDs, or missing fields. Correct any detected issues before finalizing the rule.\n"
-                        "8. Refer to the Sigma Rule Creation Guide for standard practices, including how to structure detection logic, use conditions, and select appropriate metadata fields."
+                        "You are a highly skilled threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
+                        "Your task is to accurately convert user-provided Splunk savedsearch.conf rules into well-structured Sigma .yml rules.\n\n"
+                        "**Conversion Guidelines:**\n"
+                        "1. Ensure the Sigma rule adheres to best practices in threat detection, conforming strictly to the Sigma rule format.\n"
+                        "2. The 'author' field must be set to 'Splunk2Sigma', and the 'date' field should reflect today's date in 'yyyy-mm-dd' format.\n"
+                        "3. Output only the Sigma rule in YAML format without additional explanations.\n"
+                        "4. Verify that all fields are correctly indented using 2 spaces per level, and no line ends with a colon without a value.\n"
+                        "5. Ensure that UUIDs in the 'id' field are valid.\n"
+                        "6. Confirm the 'logsource' section includes at least one of the 'product', 'service', or 'category' fields.\n"
+                        "7. The 'detection' section must include a 'condition' field. Double-check for logical accuracy and completeness.\n"
+                        "8. Review and correct common issues such as improper indentation, invalid UUIDs, or missing critical fields before finalizing.\n"
+                        "9. If any issues are detected post-conversion, address and correct them in the output.\n"
+                        "10. Refer to the Sigma Rule Creation Guide for best practices, especially in structuring detection logic, using conditions, and selecting appropriate metadata fields."
                     )
                 },
                 {
