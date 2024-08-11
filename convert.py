@@ -29,13 +29,18 @@ def auto_correct_indentation(sigma_rule: str) -> str:
                 indentation_level += 1
             elif stripped_line.startswith('- '):
                 corrected_lines.append('  ' * indentation_level + stripped_line)
-            else:
-                indentation_level = max(0, indentation_level - 1)
+            elif stripped_line.startswith('logsource:'):
+                indentation_level = 1  # Ensure proper indentation for logsource section
                 corrected_lines.append('  ' * indentation_level + stripped_line)
+            else:
+                corrected_lines.append('  ' * indentation_level + stripped_line)
+                if indentation_level > 0:
+                    indentation_level -= 1
         else:
             corrected_lines.append(line)
 
     return "\n".join(corrected_lines)
+
 
 def pre_validate_yaml(sigma_rule: str) -> str:
     """
