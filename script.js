@@ -25,9 +25,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     convertButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...'; 
     validationStatus.style.display = 'none'; 
 
-    queryCodeArea.value = "Converting Splunk query to Sigma rule. Please wait...";
-    autoResize(queryCodeArea);
-
     const splunkInput = document.getElementById('rule-code').value;
 
     if (!splunkInput.trim()) {
@@ -42,6 +39,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     const format = document.getElementById('select-format').value;
 
     try {
+        // Request to generate the Sigma rule
         const response = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -50,38 +48,38 @@ document.getElementById('convert-btn').addEventListener('click', async function 
 
         const result = await response.json();
 
-        if (response.ok) {
-            queryCodeArea.value = result.sigmaRule;
-            autoResize(queryCodeArea); 
+        // Display the generated Sigma rule
+        queryCodeArea.value = result.sigmaRule;
+        autoResize(queryCodeArea);
+        validationStatus.textContent = result.message;
+        validationStatus.classList.remove('fail');
+        validationStatus.classList.add('info');
+        validationStatus.style.display = 'block';
+
+        // Now proceed to validate the Sigma rule
+        const validateResponse = await fetch('https://your-heroku-app.herokuapp.com/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sigmaRule: result.sigmaRule })
+        });
+
+        const validateResult = await validateResponse.json();
+
+        if (validateResponse.ok) {
             validationStatus.textContent = "SigmaC Syntax Validation: Pass";
             validationStatus.classList.remove('fail');
             validationStatus.classList.add('pass');
         } else {
-            queryCodeArea.value = result.sigmaRule;
-            autoResize(queryCodeArea);
-
             validationStatus.textContent = "SigmaC Syntax Validation: Fail. Fixing it...";
             validationStatus.classList.remove('pass');
             validationStatus.classList.add('fail');
 
-            const fixResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ splunkInput: result.sigmaRule, backend, format })
-            });
-
-            const fixResult = await fixResponse.json();
-
-            if (fixResponse.ok) {
-                queryCodeArea.value = fixResult.sigmaRule;
-                validationStatus.textContent = "SigmaC Syntax Validation: Pass";
+            // If the first validation failed and was fixed
+            if (validateResult.status === "Passed with Minor Enhancements") {
+                queryCodeArea.value = validateResult.sigmaRule;
+                validationStatus.textContent = `SigmaC Syntax Validation: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
                 validationStatus.classList.remove('fail');
                 validationStatus.classList.add('pass');
-            } else {
-                queryCodeArea.value = fixResult.sigmaRule;
-                validationStatus.textContent = `SigmaC Syntax Validation: Fail\n${fixResult.validationErrors}`;
-                validationStatus.classList.remove('pass');
-                validationStatus.classList.add('fail');
             }
         }
     } catch (error) {
@@ -90,7 +88,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         validationStatus.classList.remove('pass');
         validationStatus.classList.add('fail');
     } finally {
-        validationStatus.style.display = 'block'; 
         convertButton.disabled = false; 
         convertButton.innerHTML = 'Convert'; 
     }
