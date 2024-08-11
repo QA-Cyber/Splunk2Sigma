@@ -87,8 +87,9 @@ document.getElementById('convert-btn').addEventListener('click', async function 
             }
         } else {
             // Handle errors during conversion
-            validationStatus.textContent = `Conversion Failed: ${convertResult.validationErrors}`;
-            validationStatus.style.color = "red";
+            queryCodeArea.value = convertResult.sigmaRule;
+            validationStatus.textContent = `Conversion Success, but Validation Failed: ${convertResult.validationErrors}`;
+            validationStatus.style.color = "green";
             validationStatus.classList.remove('info', 'pass');
             validationStatus.classList.add('fail');
         }

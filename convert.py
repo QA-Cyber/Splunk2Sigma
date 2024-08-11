@@ -44,7 +44,6 @@ def auto_correct_indentation(sigma_rule: str) -> str:
                     expected_indentation = indentation_stack[-1]
             corrected_lines.append('  ' * expected_indentation + stripped_line)
 
-    logging.info(f"Auto-corrected Sigma rule indentation:\n{''.join(corrected_lines)}")
     return "\n".join(corrected_lines)
 
 
@@ -88,14 +87,11 @@ def pre_validate_yaml(sigma_rule: str) -> str:
             if "all of them" in line:
                 issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
 
-        logging.info(f"Pre-validation issues: {issues}")
         return "\n".join(issues) if issues else ""
 
     except YAMLError as e:
-        error_message = f"YAML parsing error: {str(e)}"
-        logging.error(error_message)
-        return error_message
-
+        return f"YAML parsing error: {str(e)}"
+    
 def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
     try:
         response = client.chat.completions.create(
@@ -118,13 +114,12 @@ def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
         corrected_sigma_rule = response.choices[0].message.content.strip()
         corrected_sigma_rule = corrected_sigma_rule.replace('```yaml', '').replace('```', '').strip()
 
-        logging.info(f"Corrected Sigma rule from AI:\n{corrected_sigma_rule}")
         return corrected_sigma_rule
 
     except Exception as e:
         logging.error(f"Failed to correct Sigma rule via AI: {str(e)}")
         return sigma_rule
-
+    
 def generate_sigma_rule(splunk_input):
     try:
         response = client.chat.completions.create(
@@ -179,13 +174,10 @@ def validate_sigma_rule(sigma_rule: str) -> str:
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            logging.warning(f"Validation failed with error: {stderr.decode('utf-8')}")
             return stderr.decode('utf-8') if stderr else stdout.decode('utf-8')
-        logging.info(f"Validation passed for Sigma rule:\n{sigma_rule}")
         return ""
 
     except Exception as e:
-        logging.error(f"Validation process encountered an error: {str(e)}")
         return str(e)
 
 @app.route('/convert', methods=['POST'])
@@ -196,14 +188,10 @@ def convert_splunk_to_sigma():
     if not splunk_input:
         return jsonify({"message": "Splunk input is required"}), 400
 
-    # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
-    # Auto-correct indentation
     sigma_rule = auto_correct_indentation(sigma_rule)
-    # Perform pre-validation on the generated Sigma rule
     pre_validation_result = pre_validate_yaml(sigma_rule)
     if pre_validation_result:
-        # Send back to AI for correction if pre-validation fails
         sigma_rule = send_back_to_ai_for_correction(sigma_rule, pre_validation_result)
         pre_validation_result = pre_validate_yaml(sigma_rule)
         if pre_validation_result:
@@ -221,7 +209,7 @@ def convert_splunk_to_sigma():
 @app.route('/validate', methods=['POST', 'OPTIONS'])
 def validate_sigma():
     if request.method == 'OPTIONS':
-        return '', 204  # Return no content for preflight requests
+        return '', 204
     
     data = request.json
     sigma_rule = data.get('sigmaRule')
