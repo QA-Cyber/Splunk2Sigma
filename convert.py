@@ -1,10 +1,9 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS  # Import the CORS module
 import subprocess, os
 from config import OPENAI_API_KEY
 from openai import OpenAI
-from datetime import datetime
-
+from datetime import datetime  # Import the datetime module
 
 app = Flask(__name__)
 CORS(app)
@@ -20,74 +19,99 @@ def convert_splunk_to_sigma():
     if not splunk_input:
         return jsonify({"message": "Splunk input is required"}), 400
 
-    try:
-        # Call the OpenAI API using the new client method
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. Users will provide you with a Splunk savedsearch.conf rule, and you will convert it to a Sigma .yml rule. \n\n**Guidelines:**\n1. Ensure the conversion follows best practices for threat detection and adheres to the Sigma rule format.\n2. Always use 'Splunk2Sigma' as the author and set the date to today's date in the format 'yyyy-mm-dd'.\n3. Avoid providing explanations unless explicitly asked for. Only the Sigma rule output should be provided.\n4. Ensure the output is in YAML format and adheres to the Sigma standard fields (e.g., title, id, description, tags, logsource, detection, falsepositives, level).\n5. Refer to the Sigma Rule Creation Guide for standard practices, including how to structure detection logic, use conditions, and select appropriate metadata fields."
-                },
-                {
-                    "role": "user",
-                    "content": splunk_input
-                }
-            ],
-            temperature=0.2,
-            max_tokens=2500
-        )
+    def generate_sigma_rule(splunk_input):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
+                            "Users will provide you with a Splunk savedsearch.conf rule, and you will convert it to a Sigma .yml rule. \n\n"
+                            "**Guidelines:**\n1. Ensure the conversion follows best practices for threat detection and adheres to the Sigma rule format.\n"
+                            "2. Always use 'Splunk2Sigma' as the author and set the date to today's date in the format 'yyyy-mm-dd'.\n"
+                            "3. Avoid providing explanations. Only the Sigma rule output should be provided.\n"
+                            "4. Ensure the output is in YAML format and adheres to the Sigma standard fields (e.g., title, id, description, tags, logsource, detection, falsepositives, level).\n"
+                            "5. Refer to the Sigma Rule Creation Guide for standard practices, including how to structure detection logic, use conditions, and select appropriate metadata fields."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": splunk_input
+                    }
+                ],
+                temperature=0.2,
+                max_tokens=2500
+            )
 
-        # Extracting the content from the message
-        sigma_rule = response.choices[0].message.content.strip()
-        sigma_rule = sigma_rule.replace('```yaml', '').replace('```', '').strip()
+            sigma_rule = response.choices[0].message.content.strip()
+            sigma_rule = sigma_rule.replace('```yaml', '').replace('```', '').strip()
 
-        # Replace the date format with the correct format
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        sigma_rule = sigma_rule.replace("yyyy-mm-dd", current_date)
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            sigma_rule = sigma_rule.replace("yyyy-mm-dd", current_date)
 
-        # Remove any problematic backticks or other unwanted characters
-        if sigma_rule.startswith("```yaml"):
-            sigma_rule = sigma_rule[6:].strip()
-        if sigma_rule.endswith("```"):
-            sigma_rule = sigma_rule[:-3].strip()
+            if sigma_rule.startswith("```yaml"):
+                sigma_rule = sigma_rule[6:].strip()
+            if sigma_rule.endswith("```"):
+                sigma_rule = sigma_rule[:-3].strip()
 
-        print("Cleaned Sigma rule:", sigma_rule)
+            return sigma_rule
 
-    except Exception as e:
-        return jsonify({"message": f"Error generating Sigma rule: {str(e)}"}), 500
+        except Exception as e:
+            return str(e)
 
-    # Validate Sigma Rule with sigma check
+    def validate_sigma_rule(sigma_rule: str) -> str:
+        try:
+            with open('temp_sigma_rule.yml', 'w') as file:
+                file.write(sigma_rule)
+
+            process = subprocess.Popen(['sigma', 'check', 'temp_sigma_rule.yml'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+
+            if process.returncode != 0:
+                return stderr.decode('utf-8') if stderr else stdout.decode('utf-8')
+            return ""
+
+        except Exception as e:
+            return str(e)
+
+    sigma_rule = generate_sigma_rule(splunk_input)
     validation_result = validate_sigma_rule(sigma_rule)
 
     if validation_result:
-        return jsonify({
-            "sigmaRule": sigma_rule, 
-            "cliCommand": "", 
-            "status": "Fail", 
-            "validationErrors": validation_result
-        }), 400
+        # Retry mechanism if validation fails
+        retry_message = (
+            "The Sigma rule generated failed validation with the following error:\n"
+            f"{validation_result}\n\n"
+            "Please correct the rule and try again."
+        )
+        # Send back to OpenAI to correct
+        retry_input = f"{sigma_rule}\n\n{retry_message}"
+        sigma_rule = generate_sigma_rule(retry_input)
 
-    cli_command = f"sigma check '{sigma_rule}'"
+        # Validate again after correction
+        validation_result = validate_sigma_rule(sigma_rule)
 
-    return jsonify({"sigmaRule": sigma_rule, "cliCommand": cli_command, "status": "Pass"})
+        if validation_result:
+            return jsonify({
+                "sigmaRule": sigma_rule,
+                "cliCommand": "",
+                "status": "Fail",
+                "validationErrors": validation_result
+            }), 400
+        else:
+            return jsonify({
+                "sigmaRule": sigma_rule,
+                "cliCommand": f"sigma check '{sigma_rule}'",
+                "status": "Pass"
+            })
 
-
-def validate_sigma_rule(sigma_rule: str) -> str:
-    try:
-        with open('temp_sigma_rule.yml', 'w') as file:
-            file.write(sigma_rule)
-
-        process = subprocess.Popen(['sigma', 'check', 'temp_sigma_rule.yml'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-
-        # Check if there's any output in stderr or stdout that indicates an issue
-        if process.returncode != 0:
-            return stderr.decode('utf-8') if stderr else stdout.decode('utf-8')
-        return ""
-    except Exception as e:
-        return str(e)
+    return jsonify({
+        "sigmaRule": sigma_rule,
+        "cliCommand": f"sigma check '{sigma_rule}'",
+        "status": "Pass"
+    })
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
