@@ -190,7 +190,7 @@ def convert_splunk_to_sigma():
     # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
     # Auto-correct indentation
-    #sigma_rule = auto_correct_indentation(sigma_rule)
+    sigma_rule = auto_correct_indentation(sigma_rule)
     # Perform pre-validation on the generated Sigma rule
     #pre_validation_result = pre_validate_yaml(sigma_rule)
     # if pre_validation_result:
