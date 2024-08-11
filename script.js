@@ -80,6 +80,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
                 validationStatus.classList.add('pass');
             } else {
                 validationStatus.textContent = "SigmaQ Validator: Fail";
+                validationStatus.style.color = "black";
                 validationStatus.classList.remove('pass');
                 validationStatus.classList.add('fail');
             }
@@ -87,6 +88,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     } catch (error) {
         alert('An error occurred while converting the rule.');
         validationStatus.textContent = "SigmaQ Validator: Fail";
+        validationStatus.style.color = "black";
         validationStatus.classList.remove('pass');
         validationStatus.classList.add('fail');
     } finally {

@@ -13,6 +13,31 @@ app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def auto_correct_indentation(sigma_rule: str) -> str:
+    lines = sigma_rule.split('\n')
+    corrected_lines = []
+    indentation_level = 0
+
+    for line in lines:
+        stripped_line = line.lstrip()
+        if stripped_line and not stripped_line.startswith('#'):
+            # Determine the level of indentation (number of leading spaces)
+            if stripped_line.endswith(':'):
+                # Increase indentation for next level
+                corrected_lines.append('  ' * indentation_level + stripped_line)
+                indentation_level += 1
+            else:
+                # Current level or dedent
+                if stripped_line.startswith('- '):
+                    corrected_lines.append('  ' * indentation_level + stripped_line)
+                else:
+                    indentation_level = max(0, indentation_level - 1)
+                    corrected_lines.append('  ' * indentation_level + stripped_line)
+        else:
+            corrected_lines.append(line)
+
+    return "\n".join(corrected_lines)
+
 def pre_validate_yaml(sigma_rule: str) -> str:
     """
     Perform pre-validation on the Sigma rule YAML to identify and fix common issues.
@@ -157,6 +182,8 @@ def convert_splunk_to_sigma():
 
     # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
+    # Auto-correct indentation
+    sigma_rule = auto_correct_indentation(sigma_rule)
     # Perform pre-validation on the generated Sigma rule
     pre_validation_result = pre_validate_yaml(sigma_rule)
     if pre_validation_result:
