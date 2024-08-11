@@ -37,11 +37,9 @@ document.getElementById('convert-btn').addEventListener('click', async function 
     const format = document.getElementById('select-format').value;
 
     try {
-        // Inform user that generation is in progress
         queryCodeArea.value = "Generating Sigma rule. Please wait...";
         autoResize(queryCodeArea);
 
-        // Request to generate the Sigma rule
         const convertResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/convert', {  
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -50,49 +48,22 @@ document.getElementById('convert-btn').addEventListener('click', async function 
 
         const convertResult = await convertResponse.json();
         queryCodeArea.value = convertResult.sigmaRule; 
-        validationStatus.textContent = "Sigma rule generated. Validating syntax now...";
-        validationStatus.style.color = "green";
-        validationStatus.classList.remove('fail');
-        validationStatus.classList.add('info');
-        validationStatus.style.display = 'block';
-        
+        autoResize(queryCodeArea);
 
-        if (convertResponse.ok) {
-            // Now proceed to validate the Sigma rule
-            const validateResponse = await fetch('https://splunk2sigma-65a4a257f8cf.herokuapp.com/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sigmaRule: convertResult.sigmaRule })
-            });
-
-            const validateResult = await validateResponse.json();
-
-            if (validateResponse.ok) {
-                validationStatus.textContent = "SigmaQ Validator: Pass";
-                validationStatus.classList.remove('fail');
-                validationStatus.classList.add('pass');
-            } else {
-                if (validateResult.status === "Passed with Minor Enhancements") {
-                    queryCodeArea.value = validateResult.sigmaRule;
-                    validationStatus.textContent = `SigmaQ Validator: Passed with Minor Enhancements\n${validateResult.validationErrors}`;
-                    validationStatus.classList.remove('fail');
-                    validationStatus.classList.add('pass');
-                } else {
-                    const reason = validateResult.validationErrors.split("\n")[0];  // Extract the first error line as the reason
-                    validationStatus.textContent = `SigmaQ Validator: Fail - Reason: ${reason}`;
-                    validationStatus.style.color = "black";
-                    validationStatus.classList.remove('pass');
-                    validationStatus.classList.add('fail');
-                }
-            }
-        } else {
-            // Handle errors during conversion
-            queryCodeArea.value = convertResult.sigmaRule;
-            validationStatus.textContent = `Conversion Success, but Validation Failed: ${convertResult.validationErrors}`;
+        if (convertResult.status === "Pass") {
+            validationStatus.textContent = "SigmaQ Validator: Pass";
             validationStatus.style.color = "green";
-            validationStatus.classList.remove('info', 'pass');
-            validationStatus.classList.add('fail');
+            validationStatus.classList.remove('fail');
+            validationStatus.classList.add('pass');
+        } else {
+            validationStatus.innerHTML = `SigmaQ Validator: NA Validation <span style="font-size: 0.8em; font-style: italic;">${convertResult.validationErrors}</span>`;
+            validationStatus.style.color = "black";
+            validationStatus.style.backgroundColor = "green";
+            validationStatus.classList.remove('pass', 'fail');
+            validationStatus.classList.add('info');
         }
+        validationStatus.style.display = 'block';
+
     } catch (error) {
         alert('An error occurred while converting the rule.');
         validationStatus.textContent = "SigmaQ Validator: Fail";
@@ -104,7 +75,6 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         convertButton.innerHTML = 'Convert'; 
     }
 });
-
 function autoResize(textarea) {
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';

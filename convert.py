@@ -191,15 +191,16 @@ def convert_splunk_to_sigma():
     sigma_rule = generate_sigma_rule(splunk_input)
     sigma_rule = auto_correct_indentation(sigma_rule)
     pre_validation_result = pre_validate_yaml(sigma_rule)
+
     if pre_validation_result:
         sigma_rule = send_back_to_ai_for_correction(sigma_rule, pre_validation_result)
         pre_validation_result = pre_validate_yaml(sigma_rule)
         if pre_validation_result:
             return jsonify({
                 "sigmaRule": sigma_rule,
-                "status": "Fail",
+                "status": "NA Validation",
                 "validationErrors": pre_validation_result
-            }), 400
+            }), 200
 
     return jsonify({
         "sigmaRule": sigma_rule,
