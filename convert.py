@@ -14,35 +14,40 @@ app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def validate_original_yaml(sigma_rule: str) -> str:
+    try:
+        # Attempt to parse the original YAML
+        safe_load(sigma_rule)
+        return ""
+    except YAMLError as e:
+        return f"YAML parsing error: {str(e)}"
+
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
+    indentation_stack = [0]
     expected_indentation = 0
-    indentation_stack = []
 
     for line in lines:
         stripped_line = line.lstrip()
-
-        # Determine the current level of indentation
         actual_indentation = (len(line) - len(stripped_line)) // 2
 
         if stripped_line.startswith('- '):
             # Handle list items
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-        elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
-            # Increase the indentation for new blocks
+        elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
+            # Increase indentation level for new blocks
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-            expected_indentation += 1
-            indentation_stack.append(expected_indentation)
+            indentation_stack.append(expected_indentation + 1)
         else:
-            # Correctly handle indentation decrease when a block ends
-            while indentation_stack and actual_indentation < expected_indentation:
-                indentation_stack.pop()
-                expected_indentation -= 1
+            # Adjust indentation level for fields within a block
+            if actual_indentation < expected_indentation:
+                while indentation_stack and actual_indentation < expected_indentation:
+                    indentation_stack.pop()
+                    expected_indentation = indentation_stack[-1]
             corrected_lines.append('  ' * expected_indentation + stripped_line)
 
     return "\n".join(corrected_lines)
-
 
 
 def pre_validate_yaml(sigma_rule: str) -> str:
@@ -89,6 +94,7 @@ def pre_validate_yaml(sigma_rule: str) -> str:
 
     except YAMLError as e:
         return f"YAML parsing error: {str(e)}"
+
 
 def generate_sigma_rule(splunk_input):
     try:
@@ -164,16 +170,19 @@ def convert_splunk_to_sigma():
 
     # Generate the Sigma rule
     sigma_rule = generate_sigma_rule(splunk_input)
-    # Auto-correct indentation
-    sigma_rule = auto_correct_indentation(sigma_rule)
-    # Perform pre-validation on the generated Sigma rule
-    pre_validation_result = pre_validate_yaml(sigma_rule)
-    if pre_validation_result:
-        return jsonify({
-            "sigmaRule": sigma_rule,
-            "status": "Fail",
-            "validationErrors": pre_validation_result
-        }), 400
+
+    # Validate the original Sigma rule before applying corrections
+    original_validation_result = validate_original_yaml(sigma_rule)
+    if original_validation_result:
+        # Apply auto-correction and pre-validation only if the original rule is invalid
+        sigma_rule = auto_correct_indentation(sigma_rule)
+        pre_validation_result = pre_validate_yaml(sigma_rule)
+        if pre_validation_result:
+            return jsonify({
+                "sigmaRule": sigma_rule,
+                "status": "Fail",
+                "validationErrors": pre_validation_result
+            }), 400
 
     # Optionally, perform full validation here using sigma-cli if desired
     validation_result = validate_sigma_rule(sigma_rule)
@@ -210,8 +219,7 @@ def validate_sigma():
     else:
         return jsonify({
             "status": "Pass"
-        })
-    
+        })   
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
