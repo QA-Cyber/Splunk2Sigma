@@ -146,19 +146,15 @@ def generate_sigma_rule(splunk_input):
                 {
                     "role": "system",
                     "content": (
-                        "You are a highly skilled threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
-                        "Your task is to accurately convert user-provided Splunk savedsearch.conf rules into well-structured Sigma .yml rules.\n\n"
-                        "**Conversion Guidelines:**\n"
-                        "1. Ensure the Sigma rule adheres to best practices in threat detection, conforming strictly to the Sigma rule format.\n"
-                        "2. The 'author' field must be set to 'Splunk2Sigma', and the 'date' field should reflect today's date in 'yyyy-mm-dd' format.\n"
-                        "3. Output only the Sigma rule in YAML format without additional explanations.\n"
-                        "4. Verify that all fields are correctly indented using 2 spaces per level, and no line ends with a colon without a value.\n"
-                        "5. Ensure that UUIDs in the 'id' field are valid.\n"
-                        "6. Confirm the 'logsource' section includes at least one of the 'product', 'service', or 'category' fields.\n"
-                        "7. The 'detection' section must include a 'condition' field. Double-check for logical accuracy and completeness.\n"
-                        "8. Review and correct common issues such as improper indentation, invalid UUIDs, or missing critical fields before finalizing.\n"
-                        "9. If any issues are detected post-conversion, address and correct them in the output.\n"
-                        "10. Refer to the Sigma Rule Creation Guide for best practices, especially in structuring detection logic, using conditions, and selecting appropriate metadata fields."
+                        "You are a threat detection engineer specializing in converting Splunk savedsearch.conf rules to Sigma .yml rules. "
+                        "Convert the provided Splunk savedsearch.conf rule into a Sigma .yml rule following these guidelines:\n\n"
+                        "1. Use 'Splunk2Sigma' as the author and today's date in 'yyyy-mm-dd' format.\n"
+                        "2. Output only the Sigma rule in YAML format without additional explanations.\n"
+                        "3. Ensure proper indentation with 2 spaces per level and no line ending with a colon without a value.\n"
+                        "4. Validate that UUIDs in the 'id' field are correct.\n"
+                        "5. Include at least one of 'product', 'service', or 'category' in the 'logsource' section.\n"
+                        "6. The 'detection' section must include a 'condition' field.\n"
+                        "7. Correct common issues like improper indentation, invalid UUIDs, or missing fields before finalizing."
                     )
                 },
                 {
