@@ -18,24 +18,35 @@ def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
     indentation_level = 0
+    logsource_detected = False
 
     for line in lines:
         stripped_line = line.lstrip()
-        if stripped_line and not stripped_line.startswith('#'):
-            # Determine the level of indentation (number of leading spaces)
-            if stripped_line.endswith(':') and not stripped_line.startswith('-'):
-                # Increase indentation for next level
+        
+        if stripped_line:
+            if stripped_line.startswith('- '):
+                # Keep the current indentation for list items
+                corrected_lines.append('  ' * indentation_level + stripped_line)
+            elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
+                # This is a new block, increase the indentation
                 corrected_lines.append('  ' * indentation_level + stripped_line)
                 indentation_level += 1
-            elif stripped_line.startswith('- '):
-                corrected_lines.append('  ' * indentation_level + stripped_line)
             elif stripped_line.startswith('logsource:'):
-                indentation_level = 1  # Ensure proper indentation for logsource section
+                # Ensure proper indentation for the logsource section
+                indentation_level = 1
                 corrected_lines.append('  ' * indentation_level + stripped_line)
+                logsource_detected = True
+            elif stripped_line.startswith('service:') and logsource_detected:
+                # Correct indentation for the service under logsource
+                corrected_lines.append('  ' * (indentation_level + 1) + stripped_line)
+            elif stripped_line.startswith('product:') and logsource_detected:
+                # Correct indentation for the product under logsource
+                corrected_lines.append('  ' * (indentation_level + 1) + stripped_line)
             else:
-                corrected_lines.append('  ' * indentation_level + stripped_line)
-                if indentation_level > 0:
+                # Normal line or decrease indentation if we reach a new block
+                if indentation_level > 0 and (':' in stripped_line or not stripped_line.startswith('- ')):
                     indentation_level -= 1
+                corrected_lines.append('  ' * indentation_level + stripped_line)
         else:
             corrected_lines.append(line)
 
@@ -58,11 +69,11 @@ def pre_validate_yaml(sigma_rule: str) -> str:
         
         # Issue: Ensure no line ends with a colon (incomplete mapping)
         for i, line in enumerate(lines):
-            if line.strip().endswith(':'):
+            if line.strip().endswith(':') and i + 1 < len(lines) and not lines[i + 1].strip().startswith('-'):
                 issues.append(f"YAML formatting error on line {i+1}: '{line.strip()}' appears to be an incomplete key.")
 
             # Check for improperly indented fields (indentation should be a multiple of 2 spaces)
-            if len(line) - len(line.lstrip()) % 2 != 0:
+            if (len(line) - len(line.lstrip())) % 2 != 0:
                 issues.append(f"YAML indentation error on line {i+1}: '{line.strip()}' should be indented with spaces.")
 
             # Check for missing or incorrect logsource fields
