@@ -49,62 +49,73 @@ def auto_correct_indentation(sigma_rule: str) -> str:
 
 def pre_validate_yaml(sigma_rule: str) -> str:
     try:
+        # Attempt to parse the original YAML to catch any unhandled errors
         safe_load(sigma_rule)
         issues = []
+        corrected_lines = []
         lines = sigma_rule.split('\n')
         
         for i, line in enumerate(lines):
             line_content = line.strip()
+            next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
 
-            # Check for incomplete keys
-            if line_content.endswith(':') and (i + 1 >= len(lines) or lines[i + 1].strip().startswith('-') or not lines[i + 1].strip()):
+            # Handle incomplete keys (Keys ending with ':')
+            if line_content.endswith(':') and (not next_line or next_line.startswith('-')):
                 issues.append(f"YAML formatting error on line {i+1}: '{line_content}' appears to be an incomplete key.")
+                # Auto-fix: Add a placeholder value to complete the key
+                corrected_lines.append(line + " <value>")
+                continue
 
-            # Check for improper indentation
-            if (len(line) - len(line.lstrip())) % 2 != 0:
-                issues.append(f"YAML indentation error on line {i+1}: '{line_content}' should be indented with spaces.")
-
-            # Validate 'logsource' block
-            if line_content == 'logsource:':
-                if not any(field in lines[i + 1] for field in ["product", "service", "category"]):
-                    issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
-
-            # Validate 'detection' block
-            if line_content == 'detection:':
-                if 'condition:' not in sigma_rule:
-                    issues.append("YAML error: 'condition' field is missing in the detection section.")
-
-            # Check for duplicate keys
-            if ":" in line_content and lines.count(line_content) > 1:
-                issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
-
-            # Validate UUID format
-            if line_content.startswith("id:"):
-                try:
-                    uuid.UUID(line_content.split("id:")[1].strip())
-                except ValueError:
-                    issues.append(f"YAML UUID error on line {i+1}: '{line_content}' is not a valid UUID.")
-
-            # Validate status field
-            if line_content.startswith("status:"):
-                if line_content.split("status:")[1].strip() not in ["stable", "test", "experimental", "deprecated", "unsupported"]:
-                    issues.append(f"YAML status error on line {i+1}: '{line_content}' is not a valid status.")
-
-            # Check for escaped wildcards or control characters in string values
+            # Handle escaped wildcards or control characters in string values
             if re.search(r'[\\*\\?]', line_content):
                 issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line_content}'. Ensure the escape is intentional.")
-            if re.search(r'[\x00-\x1f]', line_content):
-                issues.append(f"YAML error on line {i+1}: Found a control character in '{line_content}'. Check for missing slashes.")
+                # Auto-fix: Remove unnecessary escape characters
+                line_content = re.sub(r'\\([*?])', r'\1', line_content)
 
-            # Check for discouraged phrases
-            if "all of them" in line_content:
-                issues.append(f"YAML error on line {i+1}: The phrase 'all of them' is discouraged. Use 'all of selection*' instead.")
+            # Handle improper indentation (Ensure proper 2-space indentation)
+            actual_indentation = len(line) - len(line.lstrip())
+            if actual_indentation % 2 != 0:
+                issues.append(f"YAML indentation error on line {i+1}: '{line_content}' should be indented with spaces.")
+                # Auto-fix: Correct the indentation
+                corrected_lines.append('  ' * (actual_indentation // 2) + line_content)
+                continue
 
-        return "\n".join(issues) if issues else ""
+            # Handle duplicate keys within the same level
+            if ":" in line_content and sigma_rule.count(line_content) > 1:
+                issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
+                # Auto-fix: Append a unique suffix to the duplicate key
+                unique_key = line_content.split(':')[0] + f"_duplicate_{i+1}"
+                corrected_lines.append(unique_key + ": " + line_content.split(':', 1)[1].strip())
+                continue
+
+            # Validate 'logsource' block (Ensure 'logsource' includes 'product', 'service', or 'category')
+            if line_content == 'logsource:' and not any(field in next_line for field in ["product", "service", "category"]):
+                issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
+                # Auto-fix: Add a default 'product' value if missing
+                corrected_lines.append(line)
+                corrected_lines.append('  product: windows')
+                continue
+
+            # Validate 'detection' block (Ensure 'condition' is present)
+            if line_content == 'detection:' and 'condition:' not in sigma_rule:
+                issues.append("YAML error: 'condition' field is missing in the detection section.")
+                # Auto-fix: Add a placeholder 'condition' field
+                corrected_lines.append(line)
+                corrected_lines.append('  condition: selection')
+                continue
+
+            corrected_lines.append(line)
+
+        # Return the auto-corrected Sigma rule if any issues were fixed
+        if issues:
+            corrected_sigma_rule = "\n".join(corrected_lines)
+            return f"Issues found:\n{'\n'.join(issues)}\n\nAuto-corrected Sigma Rule:\n{corrected_sigma_rule}"
+
+        return ""
 
     except YAMLError as e:
         return f"YAML parsing error: {str(e)}"
- 
+
 def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
     try:
         response = client.chat.completions.create(
@@ -127,6 +138,14 @@ def send_back_to_ai_for_correction(sigma_rule: str, errors: str) -> str:
         corrected_sigma_rule = response.choices[0].message.content.strip()
         corrected_sigma_rule = corrected_sigma_rule.replace('```yaml', '').replace('```', '').strip()
 
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        corrected_sigma_rule = corrected_sigma_rule.replace("yyyy-mm-dd", current_date)
+
+        if corrected_sigma_rule.startswith("```yaml"):
+            corrected_sigma_rule = corrected_sigma_rule[6:].strip()
+        if corrected_sigma_rule.endswith("```"):
+            corrected_sigma_rule = corrected_sigma_rule[:-3].strip()
+        print("Corrected Sigma Rule: ", corrected_sigma_rule)
         return corrected_sigma_rule
 
     except Exception as e:
@@ -211,7 +230,7 @@ def convert_splunk_to_sigma():
         if pre_validation_result:
             return jsonify({
                 "sigmaRule": sigma_rule,
-                "status": "NA Validation",
+                "status": "NA:",
                 "validationErrors": pre_validation_result
             }), 200
 
