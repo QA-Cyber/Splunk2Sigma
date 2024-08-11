@@ -58,7 +58,7 @@ document.getElementById('convert-btn').addEventListener('click', async function 
         } else {
             validationStatus.innerHTML = `SigmaQ Validator: NA Validation <span style="font-size: 0.8em; font-style: italic;">${convertResult.validationErrors}</span>`;
             validationStatus.style.color = "black";
-            validationStatus.style.backgroundColor = "green";
+            validationStatus.style.backgroundColor = "lightgreen";
             validationStatus.classList.remove('pass', 'fail');
             validationStatus.classList.add('info');
         }
