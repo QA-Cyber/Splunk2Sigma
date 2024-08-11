@@ -11,54 +11,31 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
-    indentation_level = 0
-    logsource_detected = False
-    tags_detected = False
+    indentation_stack = [0]  # Stack to keep track of current indentation levels
 
     for line in lines:
         stripped_line = line.lstrip()
-        
-        if stripped_line:
-            if stripped_line.startswith('- '):
-                # Keep the current indentation for list items
-                corrected_lines.append('  ' * indentation_level + stripped_line)
-            elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
-                # This is a new block, increase the indentation
-                corrected_lines.append('  ' * indentation_level + stripped_line)
-                indentation_level += 1
-                if stripped_line == 'logsource:':
-                    logsource_detected = True
-                if stripped_line == 'tags:':
-                    tags_detected = True
-            elif stripped_line.startswith('logsource:'):
-                # Ensure proper indentation for the logsource section
-                indentation_level = 1
-                corrected_lines.append('  ' * indentation_level + stripped_line)
-                logsource_detected = True
-            elif stripped_line.startswith('tags:'):
-                # Ensure proper indentation for the tags section
-                indentation_level = 1
-                corrected_lines.append('  ' * indentation_level + stripped_line)
-                tags_detected = True
-            elif logsource_detected and (stripped_line.startswith('product:') or stripped_line.startswith('service:')):
-                # Correct indentation for product and service under logsource
-                corrected_lines.append('  ' * (indentation_level) + stripped_line)
-            elif tags_detected and stripped_line.startswith('- '):
-                # Correct indentation for tags list
-                corrected_lines.append('  ' * (indentation_level) + stripped_line)
-            else:
-                # Normal line or decrease indentation if we reach a new block
-                if indentation_level > 0 and (':' in stripped_line or not stripped_line.startswith('- ')):
-                    indentation_level -= 1
-                corrected_lines.append('  ' * indentation_level + stripped_line)
+        current_indentation = len(line) - len(stripped_line)
+
+        if stripped_line.startswith('- '):
+            # List item, keep the same indentation level
+            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
+        elif stripped_line.endswith(':') and not stripped_line.startswith('- '):
+            # New block, increase the indentation level
+            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
+            indentation_stack.append(indentation_stack[-1] + 1)
         else:
-            corrected_lines.append(line)
+            # Handle fields that should be at the same level or decrease indentation
+            if current_indentation < indentation_stack[-1]:
+                while indentation_stack and current_indentation < indentation_stack[-1]:
+                    indentation_stack.pop()
+            corrected_lines.append('  ' * (indentation_stack[-1]) + stripped_line)
 
     return "\n".join(corrected_lines)
 
