@@ -17,39 +17,29 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def auto_correct_indentation(sigma_rule: str) -> str:
     lines = sigma_rule.split('\n')
     corrected_lines = []
+    indentation_stack = [0]
     expected_indentation = 0
-    previous_indentation = None
 
     for line in lines:
         stripped_line = line.lstrip()
-
-        # Determine the actual indentation level of the current line
         actual_indentation = (len(line) - len(stripped_line)) // 2
 
-        # Check if line is a list item
         if stripped_line.startswith('- '):
-            # Indent list items based on the expected indentation level
+            # Handle list items
             corrected_lines.append('  ' * expected_indentation + stripped_line)
         elif stripped_line.endswith(':') and not stripped_line.startswith('-'):
-            # Increase expected indentation level for new blocks
+            # Increase indentation level for new blocks
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-            expected_indentation += 1
+            indentation_stack.append(expected_indentation + 1)
         else:
-            # Align fields that belong to the current block
+            # Adjust indentation level for fields within a block
+            if actual_indentation < expected_indentation:
+                while indentation_stack and actual_indentation < expected_indentation:
+                    indentation_stack.pop()
+                    expected_indentation = indentation_stack[-1]
             corrected_lines.append('  ' * expected_indentation + stripped_line)
-
-        # Adjust expected indentation for the next line
-        if actual_indentation > expected_indentation:
-            expected_indentation = actual_indentation
-
-        # Decrease indentation if a block ends and expected indentation needs to be adjusted
-        if previous_indentation is not None and actual_indentation < previous_indentation:
-            expected_indentation = actual_indentation
-
-        previous_indentation = actual_indentation
 
     return "\n".join(corrected_lines)
-
 
 
 def pre_validate_yaml(sigma_rule: str) -> str:
