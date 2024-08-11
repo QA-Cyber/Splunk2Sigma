@@ -11,7 +11,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def auto_correct_indentation(sigma_rule: str) -> str:
@@ -236,6 +236,29 @@ def convert_splunk_to_sigma():
         "cliCommand": f"sigma check '{sigma_rule}'",
         "status": "Pass"
     })
+
+@app.route('/validate', methods=['POST', 'OPTIONS'])
+def validate_sigma():
+    if request.method == 'OPTIONS':
+        return '', 204  # Return no content for preflight requests
+    
+    data = request.json
+    sigma_rule = data.get('sigmaRule')
+
+    if not sigma_rule:
+        return jsonify({"message": "Sigma rule is required"}), 400
+
+    validation_result = validate_sigma_rule(sigma_rule)
+
+    if validation_result:
+        return jsonify({
+            "status": "Fail",
+            "validationErrors": validation_result
+        }), 400
+    else:
+        return jsonify({
+            "status": "Pass"
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
