@@ -20,19 +20,19 @@ This tool is particularly useful for threat detection engineers and cybersecurit
 ## Project Structure
 
 ```
-├── config.py # Configuration file for the API key and other settings
-├── convert.py # Main Flask application file that handles the conversion and validation logic
-├── requirements.txt # List of dependencies required for the backend
-├── Procfile # Heroku-specific file for defining the type of application
-├── temp_sigma_rule.yml # Temporary file used for validation
-├── test_rule.yml # Sample Sigma rule for testing purposes
+├── config.py              # Configuration file for the API key and other settings
+├── convert.py             # Main Flask application file that handles the conversion and validation logic
+├── requirements.txt       # List of dependencies required for the backend
+├── Procfile               # Heroku-specific file for defining the type of application
+├── temp_sigma_rule.yml    # Temporary file used for validation
+├── test_rule.yml          # Sample Sigma rule for testing purposes
 ├── .github/
 │ └── workflows/
-│ └── deploy.yml # GitHub Actions workflow for deploying the frontend
-├── index.html # Main HTML file for the frontend interface
-├── script.js # JavaScript file for handling frontend logic and API communication
-├── style.css # Custom CSS file for styling the frontend
-└── README.md # This file
+│ └── deploy.yml           # GitHub Actions workflow for deploying the frontend
+├── index.html             # Main HTML file for the frontend interface
+├── script.js              # JavaScript file for handling frontend logic and API communication
+├── style.css              # Custom CSS file for styling the frontend
+└── README.md              # This file
 ```
 
 ## Installation & Setup
