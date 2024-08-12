@@ -83,11 +83,11 @@ def pre_validate_yaml(sigma_rule: str) -> Tuple[str, str]:
                 continue
 
             # Handle duplicate keys within the same level
-            if ":" in line_content and sigma_rule.count(line_content) > 1:
-                issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
-                unique_key = line_content.split(':')[0] + f"_duplicate_{i+1}"
-                corrected_lines.append(unique_key + ": " + line_content.split(':', 1)[1].strip())
-                continue
+            # if ":" in line_content and sigma_rule.count(line_content) > 1:
+            #     issues.append(f"YAML duplicate key error: The key '{line_content.split(':')[0]}' appears more than once.")
+            #     unique_key = line_content.split(':')[0] + f"_duplicate_{i+1}"
+            #     corrected_lines.append(unique_key + ": " + line_content.split(':', 1)[1].strip())
+            #     continue
 
             # Validate 'logsource' block (Ensure 'logsource' includes 'product', 'service', or 'category')
             if line_content == 'logsource:' and not any(field in next_line for field in ["product", "service", "category"]):
