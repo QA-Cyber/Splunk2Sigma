@@ -3,42 +3,43 @@
 
 ## Overview
 
-The **Splunk2Sigma Converter** is a web-based tool that allows users to convert Splunk search queries (`savedsearches.conf`) into Sigma rules (`.yml` format). Powered by AI, this tool is particularly useful for threat detection engineers and cybersecurity professionals who need to standardize and share detection rules across different SIEM (Security Information and Event Management) systems.
+The **Splunk2Sigma Converter** is a web-based tool designed to convert Splunk search queries (`savedsearches.conf`) into Sigma rules (`.yml` format). It leverages AI to ensure that complex Splunk queries are accurately transformed into Sigma rules. The tool includes a custom validator that enhances the generated Sigma rule by checking for common issues and providing auto-corrections. This custom validation process helps ensure that the Sigma rules are both accurate and compliant with Sigma standards, reducing the need for manual fixes.
 
-The conversion process is enhanced with OpenAI's capabilities, ensuring that complex Splunk queries are accurately transformed into Sigma rules. After generating the Sigma rule with AI, the tool runs it through a rule validator checker called [`sigma-cli`](https://github.com/SigmaHQ/sigma-cli) to ensure that the rule adheres to the correct format and SIGMA standards.
-The project is divided into two main components:
-1. **Frontend**: A web interface hosted on GitHub Pages [Sigma2Splunk](https://splunk2sigma.github.io/).
-2. **Backend**: A Flask-based API hosted on Heroku, which handles the conversion logic.
+This tool is particularly useful for threat detection engineers and cybersecurity professionals who need to standardize and share detection rules across different SIEM (Security Information and Event Management) systems.
+
 
 ## Features
 
-- **AI-Powered Conversion**: Leverages OpenAI to convert Splunk `savedsearches.conf` queries into Sigma rule YAML format.
-- **Validation**: After conversion, Sigma rules are validated using [`sigma-cli`](https://github.com/SigmaHQ/sigma-cli) to ensure correctness and adherence to SIGMA standards.
+- **AI-Powered Conversion**: Utilizes OpenAI to convert Splunk `savedsearches.conf` queries into Sigma rule YAML format.
+- **Custom Validation**: Includes a custom validation process that automatically detects and corrects common issues in the generated Sigma rules, ensuring they adhere to Sigma standards.
+- **Error Handling**: If the custom validator detects unresolved issues, the rule is sent back to the AI for correction, ensuring higher accuracy and compliance.
 - **Responsive Design**: Built using Bootstrap, ensuring compatibility across various devices.
+
 
 
 ## Project Structure
 
 ```
-├── backend/
-│   ├── config.py          # Configuration file for the API key and other settings
-│   ├── convert.py         # Main Flask application file that handles the conversion and validation logic
-│   ├── requirements.txt   # List of dependencies required for the backend
-│   ├── Procfile           # Heroku-specific file for defining the type of application
-│   ├── temp_sigma_rule.yml # Temporary file used for validation
-│   ├── test_rule.yml      # Sample Sigma rule for testing purposes
+├── config.py # Configuration file for the API key and other settings
+├── convert.py # Main Flask application file that handles the conversion and validation logic
+├── requirements.txt # List of dependencies required for the backend
+├── Procfile # Heroku-specific file for defining the type of application
+├── temp_sigma_rule.yml # Temporary file used for validation
+├── test_rule.yml # Sample Sigma rule for testing purposes
 ├── .github/
-│   └── workflows/
-│       └── deploy.yml     # GitHub Actions workflow for deploying the frontend
-├── index.html             # Main HTML file for the frontend interface
-├── script.js              # JavaScript file for handling frontend logic and API communication
-├── style.css              # Custom CSS file for styling the frontend
-└── README.md              # This file
+│ └── workflows/
+│ └── deploy.yml # GitHub Actions workflow for deploying the frontend
+├── index.html # Main HTML file for the frontend interface
+├── script.js # JavaScript file for handling frontend logic and API communication
+├── style.css # Custom CSS file for styling the frontend
+└── README.md # This file
 ```
 
 ## Installation & Setup
 
-### Backend (Heroku)
+### Launching the App Locally
+
+#### Backend
 
 1. **Clone the repository:**
 
@@ -47,68 +48,52 @@ The project is divided into two main components:
     cd Splunk2Sigma
     ```
 
-2. **Set up the Heroku app:**
-   - Create an account on [Heroku](https://www.heroku.com/).
-   - Install the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli).
-   - Create a new Heroku app:
+2. **Set up a virtual environment:**
+
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+
+3. **Install the required dependencies:**
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4. **Set up environment variables:**
+   - Create a `.env` file in the root of your project with your OpenAI API key:
 
      ```bash
-     heroku create your-app-name
+     OPENAI_API_KEY=your_openai_api_key
      ```
 
-3. **Set the buildpack:**
+5. **Run the Flask app:**
 
     ```bash
-    heroku buildpacks:set heroku/python
+    python convert.py
     ```
 
-4. **Deploy to Heroku:**
+6. **Access the app:**
+   - Open your browser and go to `http://127.0.0.1:5000`.
 
-    ```bash
-    git push heroku main
-    ```
+#### Frontend
 
-5. **Set environment variables:**
-   - Add your OpenAI API key to Heroku:
-
-     ```bash
-     heroku config:set OPENAI_API_KEY=your_openai_api_key
-     ```
-
-6. **Run the app:**
-
-    ```bash
-    heroku open
-    ```
-
-### Frontend (GitHub Pages)
-
-1. **Fork or clone the repository:**
-
-    ```bash
-    git clone https://github.com/Splunk2Sigma/Splunk2SigmaWeb.git
-    cd Splunk2Sigma
-    ```
-
-2. **Modify the `script.js`:**
-   - Update the `fetch` request URL to point to your Heroku backend:
+1. **Modify the `script.js`:**
+   - Update the `fetch` request URL to point to your local backend:
 
      ```javascript
-     const response = await fetch('https://your-heroku-app.herokuapp.com/convert', {
+     const response = await fetch('http://127.0.0.1:5000/convert', {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({ splunkInput, backend, format })
      });
      ```
 
-3. **Push changes to GitHub:**
-   - Ensure your repository is public.
-   - Enable GitHub Pages in the repository settings, pointing to the main branch.
+2. **Open the `index.html` file:**
+   - You can directly open this file in a web browser. The frontend will now interact with the backend running on your local machine.
 
-4. **Access the site:**
-   - Your frontend should now be live at `https://your-github-username.github.io/Splunk2SigmaWeb`.
-
-## Usage
+### Usage
 
 1. **Input the Splunk Query:**
    - In the `savedsearch.conf` text area, input your Splunk query.
@@ -123,27 +108,30 @@ The project is divided into two main components:
    - The converted Sigma rule will be displayed on the right side, along with the validation status.
 
 
+
 ## Troubleshooting
 
 ### Common Issues
 
 - **CORS Errors:**
-  - Ensure the CORS settings in the Flask app (`convert.py`) allow requests from your GitHub Pages origin. You can configure it by updating the `CORS` settings to allow requests from your specific frontend URL.
+  - Ensure the CORS settings in the Flask app (`convert.py`) allow requests from your frontend origin. You can configure it by updating the `CORS` settings to allow requests from your specific frontend URL.
 
 - **Validation Errors:**
   - If Sigma rule validation fails, ensure that the generated rule adheres to the correct Sigma format. You might need to manually adjust the generated rule or refine the input query.
 
+
 ### Logs and Debugging
 
-- **Heroku Logs:**
-  - You can view the logs for your Heroku app to debug any issues:
+- **Backend Logs:**
+  - You can view the logs of your Flask app to debug any issues:
 
     ```bash
-    heroku logs --tail
+    flask run --reload
     ```
 
 - **Browser Console:**
   - Use the browser’s developer tools to inspect any network requests or errors. This is useful for debugging issues with the frontend or API communication.
+
 
 ## Contributing
 
@@ -197,3 +185,5 @@ For more details, please refer to the [LICENSE](LICENSE) file in the repository.
 For any questions, suggestions, or issues, please feel free to open an issue in this repository.
 
 You can also follow and interact with the project on GitHub Pages: [Splunk2Sigma](https://splunk2sigma.github.io/).
+
+Developed by: Q.A
