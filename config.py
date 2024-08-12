@@ -1,4 +1,3 @@
-# config.py
 import os
 
 # OpenAI API Key

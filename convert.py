@@ -17,7 +17,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def validate_original_yaml(sigma_rule: str) -> str:
     try:
-        # Attempt to parse the original YAML
+        
         safe_load(sigma_rule)
         return ""
     except YAMLError as e:
@@ -50,7 +50,7 @@ def auto_correct_indentation(sigma_rule: str) -> str:
 
 def pre_validate_yaml(sigma_rule: str) -> Tuple[str, str]:
     try:
-        # Attempt to parse the original YAML to catch any unhandled errors
+        
         safe_load(sigma_rule)
         issues = []
         corrected_lines = []
@@ -61,21 +61,21 @@ def pre_validate_yaml(sigma_rule: str) -> Tuple[str, str]:
             line_content = line.strip()
             next_line = lines[i + 1].strip() if i + 1 < line_count else ""
 
-            # Handle incomplete keys (Keys ending with ':' that should have values)
+            
             if line_content.endswith(':') and (not next_line or next_line.startswith('-') or next_line == ''):
-                # Ensure this is not a block that genuinely ends with ':'
+                
                 if i + 1 < line_count and not lines[i + 1].startswith(' '):
                     issues.append(f"YAML formatting error on line {i+1}: '{line_content}' appears to be an incomplete key.")
-                    # Auto-fix: Add a placeholder value to complete the key
+                    
                     corrected_lines.append(line + " <value>")
                     continue
 
-            # Handle escaped wildcards or control characters in string values
+            
             if re.search(r'\\[.*?]', line_content):
                 issues.append(f"YAML error on line {i+1}: Found an escaped wildcard in '{line_content}'. Ensure the escape is intentional.")
                 line_content = re.sub(r'\\([*?])', r'\1', line_content)
 
-            # Handle improper indentation (Ensure proper 2-space indentation)
+            
             actual_indentation = len(line) - len(line.lstrip())
             if actual_indentation % 2 != 0:
                 issues.append(f"YAML indentation error on line {i+1}: '{line_content}' should be indented with spaces.")
@@ -89,14 +89,14 @@ def pre_validate_yaml(sigma_rule: str) -> Tuple[str, str]:
             #     corrected_lines.append(unique_key + ": " + line_content.split(':', 1)[1].strip())
             #     continue
 
-            # Validate 'logsource' block (Ensure 'logsource' includes 'product', 'service', or 'category')
+            
             if line_content == 'logsource:' and not any(field in next_line for field in ["product", "service", "category"]):
                 issues.append(f"YAML logsource error on line {i+1}: 'logsource' field should include at least one of 'product', 'service', or 'category'.")
                 corrected_lines.append(line)
                 corrected_lines.append('  product: windows')
                 continue
 
-            # Validate 'detection' block (Ensure 'condition' is present)
+            
             if line_content == 'detection:' and 'condition:' not in sigma_rule:
                 issues.append("YAML error: 'condition' field is missing in the detection section.")
                 corrected_lines.append(line)
@@ -105,7 +105,7 @@ def pre_validate_yaml(sigma_rule: str) -> Tuple[str, str]:
 
             corrected_lines.append(line)
 
-        # Return the auto-corrected Sigma rule if any issues were fixed
+        
         if issues:
             corrected_sigma_rule = "\n".join(corrected_lines)
             return corrected_sigma_rule, f"Issues found:\n{'\n'.join(issues)}\n\nAuto-corrected Sigma Rule:\n{corrected_sigma_rule}"
@@ -225,18 +225,18 @@ def convert_splunk_to_sigma():
     sigma_rule, pre_validation_result = pre_validate_yaml(sigma_rule)
 
     if pre_validation_result:
-        # If there are still issues after pre-validation, send to AI for correction
+        
         sigma_rule = send_back_to_ai_for_correction(sigma_rule, pre_validation_result)
         sigma_rule, pre_validation_result = pre_validate_yaml(sigma_rule)
         if pre_validation_result:
-            # Only show this if issues persist even after AI correction
+            
             return jsonify({
                 "sigmaRule": sigma_rule,
                 "status": "NA:",
                 "validationErrors": pre_validation_result
             }), 200
 
-    # If no issues, or if issues were successfully fixed, return the Sigma rule
+    
     return jsonify({
         "sigmaRule": sigma_rule,
         "status": "Pass"
@@ -256,10 +256,13 @@ def validate_sigma():
     validation_result = validate_sigma_rule(sigma_rule)
 
     if validation_result:
-        return jsonify({
-            "status": "Fail",
-            "validationErrors": validation_result
-        }), 400
+        sigma_rule = send_back_to_ai_for_correction(sigma_rule, validation_result)
+        validation_result = validate_sigma_rule(sigma_rule)
+        if validation_result:
+            return jsonify({
+                "status": "Fail",
+                "validationErrors": validation_result
+            }), 400
     else:
         return jsonify({
             "status": "Pass"
